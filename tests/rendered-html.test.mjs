@@ -44,17 +44,25 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
 });
 
 test("keeps the Watch and Services branding wired to local assets", async () => {
-  const [portal, layout, packageJson] = await Promise.all([
+  const [portal, layout, packageJson, socialCard] = await Promise.all([
     readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../public/og.png", import.meta.url)),
   ]);
 
   assert.match(portal, /\/waniska-watch-logo\.png/);
   assert.match(portal, /\/waniska-services-logo\.png/);
   assert.match(portal, /A free community resource from/);
+  assert.match(portal, /See the activity\. Know the territory\./);
   assert.match(layout, /Waniskâ Watch/);
+  assert.match(layout, /https:\/\/app\.waniskaservices\.ca\/watch\/og\.png/);
+  assert.match(layout, /summary_large_image/);
+  assert.match(layout, /See the activity\. Know the territory\./);
   assert.match(packageJson, /"name": "waniska-watch"/);
+  assert.equal(socialCard.subarray(1, 4).toString("ascii"), "PNG");
+  assert.equal(socialCard.readUInt32BE(16), 1200);
+  assert.equal(socialCard.readUInt32BE(20), 630);
 });
 
 test("wires official treaty and public-contact data into the mining portal", async () => {

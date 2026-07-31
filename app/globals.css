@@ -13,12 +13,13 @@
   --watch-muted: #62716c;
   --watch-gold: #b98232;
   --watch-warning: #7b5427;
+  --watch-sans: "Avenir Next", Avenir, Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 html, body { margin: 0; min-height: 100%; background: var(--watch-paper); color: var(--watch-ink); }
-body { font-family: var(--font-geist-sans), Arial, sans-serif; }
+body { font-family: var(--watch-sans); }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 a { color: inherit; }
@@ -509,7 +510,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-support-dialog > div a:last-child { background: transparent; color: var(--watch-forest); }
 .watch-support-dialog > small { display: block; margin-top: 18px; color: var(--watch-muted); font-size: 11px; }
 
-.leaflet-tooltip { font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 12px; border-radius: 0 !important; }
+.leaflet-tooltip { font-family: var(--watch-sans); font-size: 12px; border-radius: 0 !important; }
 .leaflet-control-attribution { font-size: 10px !important; }
 
 @media (max-width: 1050px) {

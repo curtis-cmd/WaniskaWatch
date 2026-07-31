@@ -932,7 +932,7 @@ export default function MiningPortal() {
     </section>
 
     <footer className="watch-footer">
-      <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo /></a><p>Public mining intelligence for informed community decisions.</p></div>
+      <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo /></a><p>See the activity. Know the territory.</p></div>
       <a className="watch-services-brand" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
         <span>A free community resource from Waniskâ Services.</span>
         <img src={appPath("/waniska-services-logo.png")} alt="" />
