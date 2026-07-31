@@ -30,7 +30,8 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Waniskâ Watch — Territory Watch<\/title>/i);
-  assert.match(html, /waniska-watch-logo\.png/i);
+  assert.match(html, /waniska-watch-header\.png/i);
+  assert.match(html, /waniska-watch-footer\.png/i);
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A free community resource from/i);
   assert.match(html, /https:\/\/waniskaservices\.ca\//i);
@@ -44,14 +45,17 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
 });
 
 test("keeps the Watch and Services branding wired to local assets", async () => {
-  const [portal, layout, packageJson, socialCard] = await Promise.all([
+  const [portal, layout, packageJson, socialCard, headerLogo, footerLogo] = await Promise.all([
     readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../public/og.png", import.meta.url)),
+    readFile(new URL("../public/waniska-watch-header.png", import.meta.url)),
+    readFile(new URL("../public/waniska-watch-footer.png", import.meta.url)),
   ]);
 
-  assert.match(portal, /\/waniska-watch-logo\.png/);
+  assert.match(portal, /\/waniska-watch-header\.png/);
+  assert.match(portal, /\/waniska-watch-footer\.png/);
   assert.match(portal, /\/waniska-services-logo\.png/);
   assert.match(portal, /A free community resource from/);
   assert.match(portal, /See the activity\. Know the territory\./);
@@ -65,6 +69,11 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
   assert.equal(socialCard.subarray(1, 4).toString("ascii"), "PNG");
   assert.equal(socialCard.readUInt32BE(16), 1200);
   assert.equal(socialCard.readUInt32BE(20), 630);
+  for (const logo of [headerLogo, footerLogo]) {
+    assert.equal(logo.subarray(1, 4).toString("ascii"), "PNG");
+    assert.equal(logo.readUInt32BE(16), 1733);
+    assert.equal(logo.readUInt32BE(20), 813);
+  }
 });
 
 test("wires official treaty and public-contact data into the mining portal", async () => {

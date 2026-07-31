@@ -116,8 +116,12 @@ const provinces: Record<ProvinceKey, {
   },
 };
 
-function WatchLogo() {
-  return <img className="watch-logo" src={appPath("/waniska-watch-logo.png")} alt="Waniskâ Watch" />;
+function WatchLogo({ variant = "black" }: { variant?: "black" | "white" }) {
+  return <img
+    className="watch-logo"
+    src={appPath(variant === "white" ? "/waniska-watch-footer.png" : "/waniska-watch-header.png")}
+    alt="Waniskâ Watch"
+  />;
 }
 
 function readableStatus(status: string | null) {
@@ -932,7 +936,7 @@ export default function MiningPortal() {
     </section>
 
     <footer className="watch-footer">
-      <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo /></a><p>See the activity. Know the territory.</p></div>
+      <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo variant="white" /></a><p>See the activity. Know the territory.</p></div>
       <a className="watch-services-brand" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
         <span>A free community resource from Waniskâ Services.</span>
         <img src={appPath("/waniska-services-logo.png")} alt="" />
