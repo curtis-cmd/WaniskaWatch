@@ -39,6 +39,12 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /TERRITORY WATCH/i);
   assert.match(html, /Mining activity/i);
   assert.match(html, /A claim is not consent/i);
+  assert.match(html, /Information only—do not rely on this map/i);
+  assert.match(html, /LEGAL &amp; RELIANCE NOTICE/i);
+  assert.match(html, /Independent verification required/i);
+  assert.match(html, /To the fullest extent permitted by applicable law/i);
+  assert.match(html, /Nothing in this notice excludes, restricts or modifies/i);
+  assert.match(html, /href="#legal-notice"/i);
   assert.doesNotMatch(html, /SECTOR LENSES/i);
   assert.doesNotMatch(html, /Export visible records/i);
   assert.doesNotMatch(html, /Minerals Watch/i);

@@ -250,6 +250,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .territory-watch-context span { color: var(--watch-muted); font-size: 12px; }
 .territory-watch-context b { margin-top: 5px; font-size: 13px; }
 
+.watch-reliance-banner {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: minmax(240px, .8fr) minmax(0, 1.2fr);
+  gap: 16px 28px;
+  background: #eee7d8;
+  border: 1px solid #d3c4a5;
+  border-left: 5px solid var(--watch-gold);
+}
+.watch-reliance-banner strong { font-size: 13px; line-height: 1.45; }
+.watch-reliance-banner span { color: #625a49; font-size: 12px; line-height: 1.55; }
+.watch-reliance-banner a { color: var(--watch-forest); font-weight: 800; text-underline-offset: 3px; }
+
 .territory-watch-workspace {
   height: min(820px, calc(100vh - 110px));
   min-height: 700px;
@@ -467,6 +481,42 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-source-register dd { margin: 5px 0 0; font-size: 12px; font-weight: 700; }
 .watch-source-register a { color: var(--watch-forest); font-size: 12px; font-weight: 800; text-underline-offset: 4px; }
 
+.watch-legal-section {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 36px clamp(24px, 5vw, 72px) 100px;
+}
+.watch-legal-heading { max-width: 900px; }
+.watch-legal-heading h2 {
+  margin: 13px 0 18px;
+  font: 500 clamp(34px, 4.1vw, 55px)/1.04 Georgia, serif;
+  letter-spacing: -.035em;
+}
+.watch-legal-heading > p { max-width: 780px; color: var(--watch-muted); font-size: 14px; line-height: 1.7; }
+.watch-legal-terms {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--watch-line);
+  border-left: 1px solid var(--watch-line);
+}
+.watch-legal-terms article {
+  padding: 24px;
+  border-right: 1px solid var(--watch-line);
+  border-bottom: 1px solid var(--watch-line);
+  background: rgba(255, 254, 250, .55);
+}
+.watch-legal-terms h3 { margin: 0 0 10px; font: 600 20px/1.2 Georgia, serif; }
+.watch-legal-terms p { margin: 0; color: var(--watch-muted); font-size: 12px; line-height: 1.65; }
+.watch-legal-acknowledgement {
+  margin: 20px 0 0;
+  padding: 18px 20px;
+  background: var(--watch-forest-dark);
+  color: #edf3ef;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .watch-services-band {
   background: var(--watch-forest-dark);
   color: #edf3ef;
@@ -496,6 +546,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-footer .watch-logo { width: 180px; height: 85px; }
 .watch-footer p { color: #99b6ad; font-size: 11px; line-height: 1.55; }
 .watch-footer > p { text-align: right; }
+.watch-footer > p a { color: #e9f0ec; text-underline-offset: 3px; }
 .watch-services-brand { display: flex; align-items: center; gap: 12px; color: #b9ccc6; text-decoration: none; }
 .watch-services-brand span { max-width: 120px; font-size: 10px; line-height: 1.35; text-align: right; }
 .watch-services-brand img { width: 86px; height: 68px; object-fit: contain; }
@@ -573,6 +624,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .watch-trust-points h3 { margin-top: 16px; }
   .watch-boundary-note { grid-template-columns: 1fr; }
   .watch-boundary-note span { grid-column: 1; }
+  .watch-reliance-banner, .watch-legal-terms { grid-template-columns: 1fr; }
   .watch-services-band { align-items: flex-start; flex-direction: column; }
 }
 
@@ -598,7 +650,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .watch-record-detail dl > div { grid-template-columns: 1fr; gap: 4px; }
   .watch-record-detail dd { text-align: left; }
   .watch-record-actions { grid-template-columns: 1fr; }
-  .watch-trust-section, .watch-sources-section { padding-inline: 20px; }
+  .watch-trust-section, .watch-sources-section, .watch-legal-section { padding-inline: 20px; }
   .watch-source-register dl { grid-template-columns: 1fr; gap: 10px; }
   .watch-source-register dl > div { padding: 0 0 9px; border-right: 0; border-bottom: 1px solid var(--watch-line); }
   .watch-footer { grid-template-columns: 1fr; padding-inline: 20px; }
