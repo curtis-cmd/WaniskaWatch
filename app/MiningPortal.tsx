@@ -138,6 +138,35 @@ function readableStatus(status: string | null) {
   return status.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+const inactiveStatusMarkers = [
+  "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
+  "expired", "forfeited", "non operational", "orphaned", "past producing",
+  "past-producing", "rejected", "remediated", "surrendered", "terminated",
+];
+
+const currentStatusMarkers = [
+  "active", "appl exemp", "appl exten", "appl lease", "appl rff",
+  "good stand", "hold", "operational", "pending", "producing mine",
+  "reactivat", "renew",
+];
+
+function normalizedStatus(status: string | null | undefined) {
+  return String(status || "").trim().toLowerCase().replaceAll("_", " ").replace(/\s+/g, " ");
+}
+
+function isCurrentActivity(properties: ActivityProperties, asOfDate = new Date().toISOString().slice(0, 10)) {
+  const status = normalizedStatus(properties.status);
+  const recordType = String(properties.kindLabel || "").toLowerCase();
+  if (recordType.includes("assessment file")) return false;
+  if (inactiveStatusMarkers.some(marker => status.includes(marker))) return false;
+  if (properties.kind === "mine") {
+    return currentStatusMarkers.some(marker => status.includes(marker)) && !status.includes("pending");
+  }
+  const explicitlyCurrent = currentStatusMarkers.some(marker => status.includes(marker));
+  if (properties.expiryDate && properties.expiryDate.slice(0, 10) < asOfDate && !explicitlyCurrent) return false;
+  return true;
+}
+
 function fmt(value: number | null | undefined) {
   return value == null ? "—" : Math.round(value).toLocaleString("en-CA");
 }
@@ -314,7 +343,9 @@ export default function MiningPortal() {
       setDataStatus("ready");
       if (typeof window !== "undefined") {
         const recordId = new URLSearchParams(window.location.search).get("record");
-        const linked = mining.features.find((feature: ActivityFeature) => String(feature.properties.id) === recordId);
+        const linked = mining.features.find((feature: ActivityFeature) => (
+          String(feature.properties.id) === recordId && isCurrentActivity(feature.properties)
+        ));
         if (linked) {
           setSelected({
             ...linked,
@@ -340,17 +371,19 @@ export default function MiningPortal() {
   }, [province]);
 
   const activities = useMemo<ActivityFeature[]>(() => {
-    return [...(miningDataset?.features || []), ...liveClaims].map(feature => ({
-      ...feature,
-      properties: {
-        ...feature.properties,
-        sector: "minerals" as Sector,
-        sectorLabel: "Minerals",
-        sourceUrl: miningDataset?.metadata.sourceUrl,
-        sourceName: miningDataset?.metadata.source,
-        lastUpdated: feature.properties.lastUpdated || miningDataset?.metadata.generatedAt,
-      },
-    }));
+    return [...(miningDataset?.features || []), ...liveClaims]
+      .filter(feature => isCurrentActivity(feature.properties))
+      .map(feature => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          sector: "minerals" as Sector,
+          sectorLabel: "Minerals",
+          sourceUrl: miningDataset?.metadata.sourceUrl,
+          sourceName: miningDataset?.metadata.source,
+          lastUpdated: feature.properties.lastUpdated || miningDataset?.metadata.generatedAt,
+        },
+      }));
   }, [liveClaims, miningDataset]);
 
   const territoryNames = useMemo(() => {
@@ -421,10 +454,8 @@ export default function MiningPortal() {
       if (territory !== allTerritoriesLabel && feature.properties.treaty !== territory) return;
       counts[feature.properties.kind]++;
     });
-    if (territory === allTerritoriesLabel && miningDataset?.metadata.counts) {
-      counts.claim = miningDataset.metadata.counts.claim ?? counts.claim;
-      counts.exploration = miningDataset.metadata.counts.exploration ?? counts.exploration;
-      counts.lease = miningDataset.metadata.counts.operation ?? counts.lease;
+    if (territory === allTerritoriesLabel && miningDataset?.metadata.claimDelivery === "viewport-live") {
+      counts.claim = miningDataset.metadata.counts?.claim ?? counts.claim;
     }
     return counts;
   }, [activities, allTerritoriesLabel, miningDataset, territory]);
@@ -879,11 +910,11 @@ export default function MiningPortal() {
     </section>
 
     <section className="watch-snapshot" aria-label="Current data coverage">
-      <div><span>PUBLIC DATA SNAPSHOT</span><strong>{updated}</strong></div>
+      <div><span>CURRENT PUBLIC DATA</span><strong>{updated}</strong></div>
       <div><span>VISIBLE RECORDS</span><strong>{filtered.length.toLocaleString("en-CA")}</strong></div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
-      <p><i /> Free public resource · no account required</p>
+      <p><i /> Current activity only · no account required</p>
     </section>
 
     <section className="territory-watch-section" id="territory-watch" aria-labelledby="territory-watch-title">
@@ -900,13 +931,13 @@ export default function MiningPortal() {
 
       <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
         <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
-        <span>This platform presents publicly available information that may be incomplete, delayed or inaccurate. It must be independently verified and must not be relied upon. Verify every record with the responsible government, qualified advisers and the affected Nation or community before acting. <a href="#legal-notice">Read the full legal notice.</a></span>
+        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the full legal notice.</a></span>
       </aside>
 
       <div className="territory-watch-workspace">
         <aside className="territory-watch-controls" aria-label="Map filters and accessible record list">
           <div className="watch-filter-section">
-            <div className="watch-section-label"><span>FILTER THE VIEW</span><b aria-live="polite">{filtered.length.toLocaleString("en-CA")}</b></div>
+            <div className="watch-section-label"><span>FILTER CURRENT ACTIVITY</span><b aria-live="polite">{filtered.length.toLocaleString("en-CA")}</b></div>
             <label className="watch-map-search">
               <span>Search public mining records</span>
               <div>

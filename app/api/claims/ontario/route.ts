@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     spatialReference: { wkid: 4326 },
   });
   const shared = new URLSearchParams({
-    where: "1=1",
+    where: "TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%'",
     geometry,
     geometryType: "esriGeometryEnvelope",
     inSR: "4326",

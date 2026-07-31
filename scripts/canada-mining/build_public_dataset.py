@@ -35,6 +35,37 @@ COLORS = [
     "#486A62",
 ]
 
+INACTIVE_STATUS_MARKERS = (
+    "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
+    "expired", "forfeited", "non operational", "orphaned", "past producing",
+    "past-producing", "rejected", "remediated", "surrendered", "terminated",
+)
+CURRENT_STATUS_MARKERS = (
+    "active", "appl exemp", "appl exten", "appl lease", "appl rff",
+    "good stand", "hold", "operational", "pending", "producing mine",
+    "reactivat", "renew",
+)
+
+
+def normalized_status(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().replace("_", " ").split())
+
+
+def is_current_record(row: sqlite3.Row, as_of_date: str) -> bool:
+    status = normalized_status(row["status"])
+    record_type = str(row["record_type"] or "").lower()
+    if "assessment file" in record_type:
+        return False
+    if any(marker in status for marker in INACTIVE_STATUS_MARKERS):
+        return False
+    if record_type in {"mine location", "producing mine"}:
+        return any(marker in status for marker in CURRENT_STATUS_MARKERS) and "pending" not in status
+    explicitly_current = any(marker in status for marker in CURRENT_STATUS_MARKERS)
+    expiry_date = str(row["expiry_date"] or "")[:10]
+    if expiry_date and expiry_date < as_of_date and not explicitly_current:
+        return False
+    return True
+
 
 def rounded(value: Any, digits: int = 5):
     if isinstance(value, (list, tuple)):
@@ -115,26 +146,6 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         encoding="utf-8",
     )
 
-    counts = Counter(
-        {row["category"]: row["records"] for row in db.execute(
-            "SELECT category, COUNT(*) records FROM mining_records GROUP BY category"
-        )}
-    )
-    total_records = sum(counts.values())
-    holder_count = db.execute(
-        "SELECT COUNT(DISTINCT holder_or_owner) FROM mining_records "
-        "WHERE holder_or_owner IS NOT NULL AND holder_or_owner <> ''"
-    ).fetchone()[0]
-    treaty_counts = {
-        row["territory_name"]: row["records"]
-        for row in db.execute(
-            """SELECT t.territory_name, COUNT(*) records
-               FROM record_territory_intersections x
-               JOIN territory_contexts t ON t.territory_id=x.territory_id
-               WHERE x.is_primary=1
-               GROUP BY t.territory_id, t.territory_name"""
-        )
-    }
     omitted_claim_polygons = province_key == "ontario"
     rows = db.execute(
         """SELECT r.*, s.source_name, s.source_url,
@@ -144,14 +155,24 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
            LEFT JOIN record_territory_intersections x
              ON x.record_id=r.record_id AND x.is_primary=1
            LEFT JOIN territory_contexts t ON t.territory_id=x.territory_id
-           WHERE (? = 0 OR r.category <> 'claim')
            ORDER BY r.record_id""",
-        (1 if omitted_claim_polygons else 0,),
     )
     features = []
+    counts: Counter[str] = Counter()
+    treaty_counts: Counter[str] = Counter()
+    holders: set[str] = set()
+    as_of_date = generated_at[:10]
     kind_lookup = {"claim": "claim", "exploration": "exploration", "operation": "lease"}
     tolerances = {"claim": 75, "exploration": 200, "operation": 75}
     for row in rows:
+        if not is_current_record(row, as_of_date):
+            continue
+        counts[row["category"]] += 1
+        treaty_counts[row["territory_name"]] += 1
+        if row["holder_or_owner"]:
+            holders.add(row["holder_or_owner"])
+        if omitted_claim_polygons and row["category"] == "claim":
+            continue
         geom = wkt.loads(row["geometry_wkt_epsg3347"])
         kind = "mine" if row["record_type"] in {"Mine location", "Producing mine"} else kind_lookup[
             row["category"]
@@ -186,9 +207,13 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                 },
             }
         )
+    total_records = sum(counts.values())
+    holder_count = len(holders)
     dataset_payload = {
         "metadata": {
             "generatedAt": generated_at,
+            "asOfDate": as_of_date,
+            "currentOnly": True,
             "province": province_name,
             "source": f"{province_name} government mining data catalogue",
             "sourceUrl": (
@@ -200,17 +225,18 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "databaseRecordCount": total_records,
             "counts": counts,
             "recordedHolderCount": holder_count,
-            "treatyCounts": treaty_counts,
+            "treatyCounts": dict(treaty_counts),
             "claimDelivery": (
                 "viewport-live"
                 if omitted_claim_polygons
                 else "included"
             ),
             "locationNote": (
-                "Ontario claim polygons are retained in the verified database and are loaded "
-                "by map viewport rather than bundled into this page dataset."
+                "Current Ontario claim polygons are loaded from MLAS by map viewport; inactive "
+                "and historical records are excluded from the public view."
                 if omitted_claim_polygons
-                else "All configured provincial records are included in this public map file."
+                else "Only current government-status records are included; historical assessment "
+                "files and clearly inactive records are excluded."
             ),
         },
         "type": "FeatureCollection",
@@ -260,7 +286,7 @@ def main() -> None:
             {
                 "metadata": {
                     "generatedAt": datetime.now(timezone.utc).isoformat(),
-                    "note": "Verified provincial mining coverage available in Waniskâ Watch.",
+                    "note": "Current verified provincial mining coverage available in Waniskâ Watch; inactive and historical records are excluded.",
                 },
                 "provinces": catalogue,
             },

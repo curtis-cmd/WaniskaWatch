@@ -5,16 +5,16 @@ records in Saskatchewan and Ontario. The source schemas remain separate; the nor
 SQLite schema provides a consistent research layer without concealing differences between
 MARS, MLAS, provincial geological inventories, and assessment-file systems.
 
-## Verified coverage retrieved July 31, 2026
+## Current public coverage as of July 31, 2026
 
 | Province | Claims / dispositions | Exploration records | Operations / tenure | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Saskatchewan | 7,460 | 14,903 | 140 | 22,503 |
-| Ontario | 394,878 | 676 | 4,031 | 399,585 |
+| Saskatchewan | 7,460 | 0 | 37 | 7,497 |
+| Ontario | 394,875 | 676 | 4,031 | 399,582 |
 
-Saskatchewan exploration records are published assessment-file footprints and may describe
-historical work. They are not presented as proof that work is active today. Saskatchewan mine
-locations retain the status published by the Saskatchewan Geological Survey.
+The public view excludes Saskatchewan's 14,903 assessment-file footprints because they document
+historical work rather than current exploration. It also excludes 103 past-producing mine
+locations. Those source records remain available in the reproducible research database.
 
 Ontario exploration coverage includes the active early-exploration layer and one exploratory
 licence of occupation. Ontario operations/tenure includes leases, mining licences of occupation,
@@ -94,11 +94,14 @@ python3 scripts/canada-mining/build_public_dataset.py saskatchewan ontario
 
 ## Public delivery
 
-Saskatchewan's 22,503 configured records are bundled into a simplified map dataset.
+Saskatchewan's 7,497 current records are bundled into a simplified map dataset. Historical
+assessment files and past-producing mines are retained in the research database but are not
+presented as current activity.
 
-Ontario's 394,878 claim polygons remain in the verified database but are not sent to every
+Ontario's 394,875 Active or Hold claim polygons remain in the verified database but are not sent to every
 visitor on initial page load. The public map requests the official MLAS claim layer only for the
-current viewport at zoom level 9 or closer, capped at 2,000 features per view. The interface asks
+current viewport at zoom level 9 or closer, restricted to Active or Hold status and capped at
+2,000 features per view. The interface asks
 the user to zoom further when a view exceeds that limit. This preserves specific claim locations
 without turning the landing page into a 200+ MB download.
 

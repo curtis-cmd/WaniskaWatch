@@ -27,6 +27,31 @@ LAYERS = {
     "mine_sites": ("mine", 0),
 }
 
+INACTIVE_STATUS_MARKERS = (
+    "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
+    "expired", "forfeited", "non operational", "orphaned", "past producing",
+    "past-producing", "rejected", "remediated", "surrendered", "terminated",
+)
+CURRENT_STATUS_MARKERS = (
+    "active", "appl exemp", "appl exten", "appl lease", "appl rff",
+    "good stand", "hold", "operational", "pending", "producing mine",
+    "reactivat", "renew",
+)
+
+
+def normalized_status(value):
+    return " ".join(str(value or "").strip().lower().replace("_", " ").split())
+
+
+def is_current_record(kind, status, expiry_date, as_of_date):
+    normalized = normalized_status(status)
+    if any(marker in normalized for marker in INACTIVE_STATUS_MARKERS):
+        return False
+    if kind == "mine":
+        return any(marker in normalized for marker in CURRENT_STATUS_MARKERS) and "pending" not in normalized
+    explicitly_current = any(marker in normalized for marker in CURRENT_STATUS_MARKERS)
+    return not (expiry_date and expiry_date < as_of_date and not explicitly_current)
+
 
 def compact_date(value):
     if value in (None, ""):
@@ -95,11 +120,17 @@ def main() -> None:
     }
     to_wgs84 = Transformer.from_crs("EPSG:26914", "EPSG:4326", always_xy=True)
     features = []
+    generated_at = datetime.now(timezone.utc).isoformat()
+    as_of_date = generated_at[:10]
 
     for filename, (kind, tolerance) in LAYERS.items():
         source = json.loads((args.raw_dir / f"{filename}.geojson").read_text(encoding="utf-8"))
         for feature in source["features"]:
             props = feature.get("properties") or {}
+            status = props.get("MINERAL_TENURE_STATUS_CODE") or props.get("MINE_STATUS")
+            expiry_date = compact_date(props.get("EXPIRY_DATE"))
+            if not is_current_record(kind, status, expiry_date, as_of_date):
+                continue
             geom = shape(feature["geometry"])
             if tolerance and geom.geom_type not in {"Point", "MultiPoint"}:
                 geom = geom.simplify(tolerance, preserve_topology=True)
@@ -116,7 +147,6 @@ def main() -> None:
                 or props.get("CURRENT_OWNER")
             )
             name = props.get("CLAIM_NAME") or props.get("MINE_NAME") or external_id
-            status = props.get("MINERAL_TENURE_STATUS_CODE") or props.get("MINE_STATUS")
             centroid = wgs.centroid
             geometry = mapping(wgs)
             geometry["coordinates"] = round_coordinates(geometry["coordinates"])
@@ -137,7 +167,7 @@ def main() -> None:
                         "holder": holder,
                         "holderEvidence": "iMaQs public Mining Search" if external_id in verified_holders else None,
                         "issueDate": compact_date(props.get("ISSUE_DATE")),
-                        "expiryDate": compact_date(props.get("EXPIRY_DATE")),
+                        "expiryDate": expiry_date,
                         "longitude": round(centroid.x, 5),
                         "latitude": round(centroid.y, 5),
                     },
@@ -148,11 +178,14 @@ def main() -> None:
     treaty_counts = Counter(feature["properties"]["treaty"] for feature in features)
     payload = {
         "metadata": {
-            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "generatedAt": generated_at,
+            "asOfDate": as_of_date,
+            "currentOnly": True,
             "source": "Government of Manitoba iMaQs",
             "sourceUrl": "https://rdmaps.gov.mb.ca/arcgis/rest/services/iMaQs/imaqsMining/MapServer",
             "treatyBoundaryNote": "Approximate geographic index only; not a legal or consultation determination.",
             "featureCount": len(features),
+            "locationNote": "Only current government-status records are included; clearly inactive and expired records are excluded.",
             "counts": counts,
             "treatyCounts": treaty_counts,
         },

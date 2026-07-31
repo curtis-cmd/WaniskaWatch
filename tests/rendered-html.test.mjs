@@ -85,7 +85,10 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
 });
 
 test("wires official treaty and public-contact data into the mining portal", async () => {
-  const portal = await readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8");
+  const [portal, ontarioClaimsRoute] = await Promise.all([
+    readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/claims/ontario/route.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(portal, /\/data\/manitoba-treaties\.json/);
   assert.match(portal, /\/data\/proponent-contacts\.json/);
@@ -113,22 +116,36 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /paddingBottomRight/);
   assert.match(portal, /Hover or tap a claim to identify it/i);
   assert.match(portal, /scrollIntoView\(\{ block: "nearest" \}\)/);
+  assert.match(portal, /isCurrentActivity/);
+  assert.match(portal, /assessment file/);
+  assert.match(portal, /Current activity only/i);
+  assert.match(ontarioClaimsRoute, /TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%'/);
 });
 
-test("publishes verified Saskatchewan and Ontario coverage metadata", async () => {
-  const [saskatchewan, ontario, catalogue] = await Promise.all([
+test("publishes current-only Manitoba, Saskatchewan and Ontario coverage", async () => {
+  const [manitoba, saskatchewan, ontario, catalogue] = await Promise.all([
+    readFile(new URL("../public/data/manitoba-mining.json", import.meta.url), "utf8"),
     readFile(new URL("../public/data/saskatchewan-mining.json", import.meta.url), "utf8"),
     readFile(new URL("../public/data/ontario-mining.json", import.meta.url), "utf8"),
     readFile(new URL("../public/data/province-coverage.json", import.meta.url), "utf8"),
   ]);
 
+  const mb = JSON.parse(manitoba);
   const sk = JSON.parse(saskatchewan);
   const on = JSON.parse(ontario);
   const coverage = JSON.parse(catalogue);
 
-  assert.equal(sk.metadata.databaseRecordCount, 22_503);
-  assert.equal(sk.metadata.featureCount, 22_503);
-  assert.equal(on.metadata.databaseRecordCount, 399_585);
+  assert.equal(mb.metadata.featureCount, 10_196);
+  assert.equal(mb.metadata.currentOnly, true);
+  assert.equal(mb.features.filter(feature => feature.properties.kind === "mine").length, 11);
+  assert.equal(mb.features.some(feature => /rejected|abandoned|remediated|non operational/i.test(feature.properties.status || "")), false);
+  assert.equal(sk.metadata.databaseRecordCount, 7_497);
+  assert.equal(sk.metadata.featureCount, 7_497);
+  assert.equal(sk.metadata.currentOnly, true);
+  assert.equal(on.metadata.currentOnly, true);
+  assert.equal(sk.features.some(feature => /assessment file/i.test(feature.properties.kindLabel)), false);
+  assert.equal(sk.features.some(feature => /past|abandoned|remediated|non operational/i.test(feature.properties.status || "")), false);
+  assert.equal(on.metadata.databaseRecordCount, 399_582);
   assert.equal(on.metadata.claimDelivery, "viewport-live");
   assert.equal(coverage.provinces.length, 2);
 });
