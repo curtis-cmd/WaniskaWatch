@@ -129,6 +129,11 @@ export default function MiningPortal() {
   const [territory, setTerritory] = useState("All Manitoba");
   const [activeMineralKinds, setActiveMineralKinds] = useState<Set<ActivityKind>>(new Set(mineralKinds));
   const [query, setQuery] = useState("");
+  const [holderFilter, setHolderFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [commodityFilter, setCommodityFilter] = useState("");
+  const [issueFrom, setIssueFrom] = useState("");
+  const [issueTo, setIssueTo] = useState("");
   const [selected, setSelected] = useState<ActivityFeature | null>(null);
   const [listLimit, setListLimit] = useState(60);
   const [mapReady, setMapReady] = useState(false);
@@ -211,12 +216,27 @@ export default function MiningPortal() {
     return counts;
   }, [activities]);
 
+  const filterOptions = useMemo(() => {
+    const unique = (values: Array<string | null | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
+    return {
+      holders: unique(activities.map(feature => feature.properties.holder)),
+      statuses: unique(activities.map(feature => feature.properties.status)),
+      commodities: unique(activities.map(feature => feature.properties.commodity)),
+    };
+  }, [activities]);
+
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return activities.filter(feature => {
       const item = feature.properties;
       if (territory !== "All Manitoba" && item.treaty !== territory) return false;
       if (!activeMineralKinds.has(item.kind)) return false;
+      if (holderFilter && item.holder !== holderFilter) return false;
+      if (statusFilter && item.status !== statusFilter) return false;
+      if (commodityFilter && item.commodity !== commodityFilter) return false;
+      const issueYear = Number(item.issueDate?.slice(0, 4));
+      if (issueFrom && (!issueYear || issueYear < Number(issueFrom))) return false;
+      if (issueTo && (!issueYear || issueYear > Number(issueTo))) return false;
       if (!normalized) return true;
       return [
         item.id,
@@ -230,7 +250,7 @@ export default function MiningPortal() {
         item.kindLabel,
       ].some(value => String(value ?? "").toLowerCase().includes(normalized));
     });
-  }, [activities, territory, activeMineralKinds, query]);
+  }, [activities, territory, activeMineralKinds, query, holderFilter, statusFilter, commodityFilter, issueFrom, issueTo]);
 
   const mineralCounts = useMemo(() => {
     const counts: Record<ActivityKind, number> = { claim: 0, exploration: 0, lease: 0, mine: 0 };
@@ -387,6 +407,24 @@ export default function MiningPortal() {
     setCopied(false);
   }
 
+  function updateAdvancedFilter(update: () => void) {
+    update();
+    setListLimit(60);
+    setSelected(null);
+    setCopied(false);
+  }
+
+  function clearAdvancedFilters() {
+    setHolderFilter("");
+    setStatusFilter("");
+    setCommodityFilter("");
+    setIssueFrom("");
+    setIssueTo("");
+    setListLimit(60);
+    setSelected(null);
+    setCopied(false);
+  }
+
   function closeSelected() {
     setSelected(null);
     setCopied(false);
@@ -522,6 +560,42 @@ export default function MiningPortal() {
             </label>)}
           </fieldset>
 
+          <details className="watch-advanced-filters">
+            <summary>
+              <span>Company, status and date</span>
+              <small>{[holderFilter, statusFilter, commodityFilter, issueFrom, issueTo].filter(Boolean).length || "More filters"}</small>
+            </summary>
+            <div>
+              <label>
+                <span>Recorded holder or company</span>
+                <select value={holderFilter} onChange={event => updateAdvancedFilter(() => setHolderFilter(event.target.value))}>
+                  <option value="">All recorded holders</option>
+                  {filterOptions.holders.map(holder => <option key={holder} value={holder}>{holder}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Published status</span>
+                <select value={statusFilter} onChange={event => updateAdvancedFilter(() => setStatusFilter(event.target.value))}>
+                  <option value="">All published statuses</option>
+                  {filterOptions.statuses.map(status => <option key={status} value={status}>{readableStatus(status)}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Commodity</span>
+                <select value={commodityFilter} onChange={event => updateAdvancedFilter(() => setCommodityFilter(event.target.value))}>
+                  <option value="">All published commodities</option>
+                  {filterOptions.commodities.map(commodity => <option key={commodity} value={commodity}>{commodity}</option>)}
+                </select>
+                <small>Commodity is missing from most Manitoba public records.</small>
+              </label>
+              <div className="watch-year-range">
+                <label><span>Issue year from</span><input inputMode="numeric" pattern="[0-9]*" value={issueFrom} onChange={event => updateAdvancedFilter(() => setIssueFrom(event.target.value.replace(/\D/g, "").slice(0, 4)))} placeholder="e.g. 2020" /></label>
+                <label><span>Issue year to</span><input inputMode="numeric" pattern="[0-9]*" value={issueTo} onChange={event => updateAdvancedFilter(() => setIssueTo(event.target.value.replace(/\D/g, "").slice(0, 4)))} placeholder="e.g. 2026" /></label>
+              </div>
+              {[holderFilter, statusFilter, commodityFilter, issueFrom, issueTo].some(Boolean) && <button type="button" onClick={clearAdvancedFilters}>Clear additional filters</button>}
+            </div>
+          </details>
+
           <div className="watch-record-list" id="records">
             <div className="watch-section-label"><span>ACCESSIBLE RECORD LIST</span><small>Select to locate</small></div>
             {dataStatus === "loading" && <p className="watch-state-message" role="status">Loading public records…</p>}
@@ -563,7 +637,7 @@ export default function MiningPortal() {
             {selected.properties.description && <p className="watch-record-description">{selected.properties.description}</p>}
             <dl>
               <div><dt>Province</dt><dd>Manitoba</dd></div>
-              <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Geographically indexed</small></dd></div>
+              <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Spatially inferred primary polygon match; other overlaps may exist</small></dd></div>
               <div><dt>Recorded holder</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Source evidence available" : "Completeness limited"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
               {selected.properties.location && <div><dt>Published location</dt><dd>{selected.properties.location}</dd></div>}
@@ -612,7 +686,7 @@ export default function MiningPortal() {
       <div className="watch-boundary-note">
         <strong>Current Manitoba boundary treatment</strong>
         <p>{treatyDataset?.metadata.boundaryNote || "Government-published historic-treaty polygons are used only as a geographic index. They do not determine rights, traditional territory or duty-to-consult obligations."}</p>
-        <span>Future Nation-authorized submissions will require governance rules consistent with Indigenous data sovereignty, including consideration of OCAP® where applicable.</span>
+        <span>Where publication is authorized, Nation-verified information will take priority over generalized government boundaries. Future Nation-authorized submissions will require governance rules consistent with Indigenous data sovereignty, including consideration of OCAP® where applicable.</span>
       </div>
     </section>
 
@@ -646,8 +720,8 @@ export default function MiningPortal() {
     <footer className="watch-footer">
       <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo /></a><p>Public mining intelligence for informed community decisions.</p></div>
       <a className="watch-services-brand" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
-        <span>A free community resource from</span>
-        <img src={appPath("/waniska-services-logo.png")} alt="Waniskâ Services" />
+        <span>A free community resource from Waniskâ Services.</span>
+        <img src={appPath("/waniska-services-logo.png")} alt="" />
       </a>
       <p>Government data · Independent presentation<br />No account required</p>
     </footer>

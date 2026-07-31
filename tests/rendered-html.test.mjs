@@ -67,5 +67,9 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /does not publish private personal contact information/i);
   assert.match(portal, /Claims and licences are not evidence of consultation or consent/i);
   assert.match(portal, /OCAP®/i);
+  assert.match(portal, /Nation-verified information will take priority/i);
   assert.match(portal, /No published treaty match/i);
+  assert.match(portal, /Recorded holder or company/i);
+  assert.match(portal, /Published status/i);
+  assert.match(portal, /Issue year from/i);
 });

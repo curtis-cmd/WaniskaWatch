@@ -269,6 +269,35 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-kind-filters i, .watch-map-legend i { width: 16px; display: inline-grid; place-items: center; font-size: 12px; font-style: normal; }
 .watch-kind-filters span { font-weight: 650; }
 .watch-kind-filters small { margin-left: auto; color: var(--watch-muted); font-size: 12px; }
+.watch-advanced-filters { border-bottom: 1px solid var(--watch-line); }
+.watch-advanced-filters summary {
+  min-height: 48px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  color: #425d56;
+  font-size: 12px;
+  font-weight: 750;
+}
+.watch-advanced-filters summary small { color: var(--watch-muted); font-size: 11px; font-weight: 600; }
+.watch-advanced-filters[open] summary { border-bottom: 1px solid var(--watch-line); background: #f3f5ef; }
+.watch-advanced-filters > div { display: grid; gap: 12px; padding: 15px 18px 18px; background: #fafbf7; }
+.watch-advanced-filters label > span { display: block; margin-bottom: 6px; color: #50665f; font-size: 11px; font-weight: 700; }
+.watch-advanced-filters select, .watch-advanced-filters input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #b9c4ba;
+  background: white;
+  color: var(--watch-ink);
+  padding: 8px 9px;
+  font-size: 12px;
+}
+.watch-advanced-filters label > small { display: block; margin-top: 5px; color: var(--watch-muted); font-size: 10px; line-height: 1.35; }
+.watch-year-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.watch-advanced-filters > div > button { min-height: 40px; border: 1px solid #aab8ae; background: transparent; color: var(--watch-forest); font-size: 11px; font-weight: 750; }
 .watch-record-list { min-height: 0; overflow-y: auto; flex: 1; }
 .watch-record-list > .watch-section-label { position: sticky; top: 0; z-index: 2; background: var(--watch-white); padding: 13px 16px; border-bottom: 1px solid var(--watch-line); }
 .watch-section-label small { color: var(--watch-muted); font-size: 11px; }
