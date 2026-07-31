@@ -37,6 +37,7 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /See the mining activity happening in your treaty territory\./i);
   assert.match(html, /MINERAL RECORD TYPES/i);
   assert.doesNotMatch(html, /SECTOR LENSES/i);
+  assert.doesNotMatch(html, /Export visible records/i);
   assert.doesNotMatch(html, /Minerals Watch/i);
 });
 
@@ -60,5 +61,6 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /\/data\/manitoba-treaties\.json/);
   assert.match(portal, /\/data\/proponent-contacts\.json/);
   assert.doesNotMatch(portal, /\/data\/manitoba-sectors\.json/);
+  assert.doesNotMatch(portal, /createObjectURL|Export visible records|\\.csv/i);
   assert.match(portal, /does not publish private personal contact information/i);
 });

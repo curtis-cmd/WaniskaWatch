@@ -280,27 +280,6 @@ export default function MiningPortal() {
     return contacts?.contacts.find(contact => holder.includes(contact.match.toLowerCase())) || null;
   }
 
-  function exportRecords() {
-    const columns: Array<[string, keyof ActivityProperties]> = [
-      ["Record ID", "id"], ["Name", "name"], ["Mining record type", "kindLabel"],
-      ["Status", "status"], ["Treaty territory", "treaty"], ["Proponent / recorded holder", "holder"],
-      ["Responsible authority", "responsibleAuthority"], ["Commodity", "commodity"], ["Area (ha)", "areaHa"],
-      ["Start / issue date", "issueDate"], ["Expiry date", "expiryDate"], ["Latitude", "latitude"],
-      ["Longitude", "longitude"], ["Public source", "sourceUrl"],
-    ];
-    const quote = (value: unknown) => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`;
-    const csv = [
-      columns.map(([label]) => quote(label)).join(","),
-      ...filtered.map(feature => columns.map(([, key]) => quote(feature.properties[key])).join(",")),
-    ].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `waniska-watch-records-${territory.toLowerCase().replaceAll(" ", "-")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   function focusFeature(feature: ActivityFeature) {
     setSelected(feature);
     mapInstance.current?.flyTo([feature.properties.latitude, feature.properties.longitude], feature.geometry.type === "Point" ? 9 : 8, { duration: 0.7 });
@@ -351,7 +330,6 @@ export default function MiningPortal() {
       <aside className="mining-controls">
         <div className="mining-control-head"><div><span className="mining-eyebrow">MAP CONTROLS</span><h2>Build your view</h2></div><b>{filtered.length.toLocaleString("en-CA")}</b></div>
         <label className="mining-search"><span aria-hidden="true">⌕</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Claim, licence, holder…" aria-label="Search Manitoba mining records" />{query && <button onClick={() => setQuery("")} aria-label="Clear search">×</button>}</label>
-        <button className="mining-export" onClick={exportRecords} disabled={!filtered.length}>Export visible records · CSV</button>
         <div className="mining-layer-list">
           <span>MINERAL RECORD TYPES</span>
           {mineralKinds.map(kind => <label key={kind}><input type="checkbox" checked={activeMineralKinds.has(kind)} onChange={() => toggleMineralKind(kind)} /><i style={{ background: kindMeta[kind].color }} /><strong>{kindMeta[kind].short}</strong><small>{mineralCounts[kind].toLocaleString("en-CA")}</small></label>)}
