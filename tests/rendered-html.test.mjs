@@ -97,6 +97,14 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /\/data\/ontario-territories\.json/);
   assert.match(portal, /\/api\/claims\/ontario/);
   assert.match(portal, /Zoom in to level 9/i);
+  assert.match(portal, /watch-claim-tooltip/);
+  assert.match(portal, /mouseover/);
+  assert.match(portal, /mouseout/);
+  assert.match(portal, /applyActivityLayerState/);
+  assert.match(portal, /fitBounds\(bounds\.pad\(0\.2\)/);
+  assert.match(portal, /paddingBottomRight/);
+  assert.match(portal, /Hover or tap a claim to identify it/i);
+  assert.match(portal, /scrollIntoView\(\{ block: "nearest" \}\)/);
 });
 
 test("publishes verified Saskatchewan and Ontario coverage metadata", async () => {

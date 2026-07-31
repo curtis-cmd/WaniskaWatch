@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
-import type { GeoJSON as LeafletGeoJSON, Map as LeafletMap } from "leaflet";
+import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Map as LeafletMap, PathOptions } from "leaflet";
 
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
@@ -75,6 +75,15 @@ type ContactDirectory = {
   metadata: { updatedAt: string; note: string };
   contacts: Array<ContactInfo & { match: string }>;
 };
+type ActivityMapLayer = LeafletLayer & {
+  feature?: ActivityFeature;
+  setStyle?: (style: PathOptions) => void;
+  setRadius?: (radius: number) => void;
+  bringToFront?: () => void;
+  getBounds?: () => LatLngBounds;
+  closeTooltip?: () => void;
+};
+type ActivityLayerState = "default" | "hover" | "selected";
 
 const mineralKinds: ActivityKind[] = ["claim", "exploration", "lease", "mine"];
 const kindMeta: Record<ActivityKind, { label: string; short: string; color: string; marker: string }> = {
@@ -150,6 +159,51 @@ function territoryLabel(value: string) {
   return value === "Unassigned" ? "No published treaty match" : value;
 }
 
+function activityKey(feature: ActivityFeature | ActivityProperties) {
+  const properties = "properties" in feature ? feature.properties : feature;
+  return `${properties.kind}:${properties.id}`;
+}
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function activityTooltip(properties: ActivityProperties) {
+  const title = properties.name || properties.id;
+  const holder = properties.holder || "Holder not published";
+  const area = properties.areaHa == null ? "Area not published" : `${fmt(properties.areaHa)} ha`;
+  return `<div class="watch-claim-preview">
+    <span>${escapeHtml(properties.kindLabel)}</span>
+    <strong>${escapeHtml(title)}</strong>
+    <small>Record ${escapeHtml(properties.id)}</small>
+    <dl>
+      <div><dt>Status</dt><dd>${escapeHtml(readableStatus(properties.status))}</dd></div>
+      <div><dt>Holder</dt><dd>${escapeHtml(holder)}</dd></div>
+      <div><dt>Area</dt><dd>${escapeHtml(area)}</dd></div>
+      <div><dt>Territory</dt><dd>${escapeHtml(territoryLabel(properties.treaty))}</dd></div>
+    </dl>
+    <em>Select for full details</em>
+  </div>`;
+}
+
+function applyActivityLayerState(layer: ActivityMapLayer, feature: ActivityFeature, state: ActivityLayerState) {
+  const color = kindMeta[feature.properties.kind].color;
+  layer.setStyle?.({
+    color: state === "selected" ? "#f2bd56" : state === "hover" ? "#fffefa" : color,
+    weight: state === "selected" ? 5 : state === "hover" ? 3.5 : 1.2,
+    opacity: state === "default" ? 0.92 : 1,
+    fillColor: color,
+    fillOpacity: state === "selected" ? 0.74 : state === "hover" ? 0.64 : 0.4,
+  });
+  layer.setRadius?.(state === "selected" ? 10 : state === "hover" ? 9 : 6);
+  if (state !== "default") layer.bringToFront?.();
+}
+
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -205,7 +259,9 @@ export default function MiningPortal() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
   const activityLayer = useRef<LeafletGeoJSON | null>(null);
+  const activityFeatureLayers = useRef<Map<string, ActivityMapLayer>>(new Map());
   const treatyLayer = useRef<LeafletGeoJSON | null>(null);
+  const recordButtons = useRef<Map<string, HTMLButtonElement>>(new Map());
   const supportDialog = useRef<HTMLDialogElement>(null);
   const [province, setProvince] = useState<ProvinceKey>("manitoba");
   const [miningDataset, setMiningDataset] = useState<ActivityDataset | null>(null);
@@ -228,6 +284,12 @@ export default function MiningPortal() {
   const [copied, setCopied] = useState(false);
   const provinceConfig = provinces[province];
   const allTerritoriesLabel = `All ${provinceConfig.name}`;
+  const selectedKey = selected ? activityKey(selected) : null;
+  const selectedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
 
   useEffect(() => {
     let active = true;
@@ -346,6 +408,13 @@ export default function MiningPortal() {
     });
   }, [activities, territory, allTerritoriesLabel, activeMineralKinds, query, holderFilter, statusFilter, commodityFilter, issueFrom, issueTo]);
 
+  const listedRecords = useMemo(() => {
+    const visible = filtered.slice(0, listLimit);
+    if (!selected || visible.some(feature => activityKey(feature) === activityKey(selected))) return visible;
+    if (!filtered.some(feature => activityKey(feature) === activityKey(selected))) return visible;
+    return [selected, ...visible];
+  }, [filtered, listLimit, selected]);
+
   const mineralCounts = useMemo(() => {
     const counts: Record<ActivityKind, number> = { claim: 0, exploration: 0, lease: 0, mine: 0 };
     activities.forEach(feature => {
@@ -368,6 +437,38 @@ export default function MiningPortal() {
     requestAnimationFrame(() => document.getElementById("territory-watch")?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" }));
   }, []);
 
+  const frameFeature = useCallback((feature: ActivityFeature) => {
+    const map = mapInstance.current;
+    if (!map) return;
+    const container = map.getContainer();
+    const isCompact = container.clientWidth < 820;
+    const paddingTopLeft: [number, number] = [28, 28];
+    const paddingBottomRight: [number, number] = isCompact
+      ? [28, Math.min(330, Math.round(container.clientHeight * 0.48))]
+      : [Math.min(470, Math.round(container.clientWidth * 0.46)), 28];
+    const featureLayer = activityFeatureLayers.current.get(activityKey(feature));
+    const bounds = featureLayer?.getBounds?.();
+    if (bounds?.isValid()) {
+      map.fitBounds(bounds.pad(0.2), {
+        maxZoom: 15,
+        paddingTopLeft,
+        paddingBottomRight,
+        animate: !prefersReducedMotion(),
+      });
+      return;
+    }
+    if (!isCompact) {
+      map.once("moveend", () => map.panBy([Math.min(220, Math.round(container.clientWidth * 0.22)), 0], {
+        animate: !prefersReducedMotion(),
+      }));
+    }
+    map.flyTo(
+      [feature.properties.latitude, feature.properties.longitude],
+      feature.geometry.type === "Point" ? 10 : 9,
+      { duration: prefersReducedMotion() ? 0 : 0.65 },
+    );
+  }, []);
+
   const selectFeature = useCallback((feature: ActivityFeature, moveMap = true) => {
     setSelected(feature);
     setCopied(false);
@@ -376,14 +477,8 @@ export default function MiningPortal() {
       nextUrl.searchParams.set("record", String(feature.properties.id));
       window.history.replaceState({}, "", nextUrl);
     }
-    if (moveMap) {
-      mapInstance.current?.flyTo(
-        [feature.properties.latitude, feature.properties.longitude],
-        feature.geometry.type === "Point" ? 9 : 8,
-        { duration: prefersReducedMotion() ? 0 : 0.65 },
-      );
-    }
-  }, []);
+    if (moveMap) frameFeature(feature);
+  }, [frameFeature]);
 
   useEffect(() => {
     if (!mapElement.current || mapInstance.current) return;
@@ -551,28 +646,77 @@ export default function MiningPortal() {
     import("leaflet").then(L => {
       if (!active || !mapInstance.current) return;
       if (activityLayer.current) activityLayer.current.remove();
+      activityFeatureLayers.current.clear();
       const collection: FeatureCollection<Geometry, ActivityProperties> = { type: "FeatureCollection", features: filtered };
       const layer = L.geoJSON(collection, {
         style: feature => {
           const props = feature?.properties as ActivityProperties;
           const color = kindMeta[props.kind].color;
-          return { color, weight: 1.2, fillColor: color, fillOpacity: 0.4 };
+          const isSelected = activityKey(props) === selectedKeyRef.current;
+          return {
+            color: isSelected ? "#f2bd56" : color,
+            weight: isSelected ? 5 : 1.2,
+            opacity: isSelected ? 1 : 0.92,
+            fillColor: color,
+            fillOpacity: isSelected ? 0.74 : 0.4,
+          };
         },
         pointToLayer: (feature, latlng) => {
           const props = feature.properties as ActivityProperties;
           const color = kindMeta[props.kind].color;
-          return L.circleMarker(latlng, { radius: 6, color: "#ffffff", weight: 2, fillColor: color, fillOpacity: 0.96 });
+          const isSelected = activityKey(props) === selectedKeyRef.current;
+          return L.circleMarker(latlng, {
+            radius: isSelected ? 10 : 6,
+            color: isSelected ? "#f2bd56" : "#ffffff",
+            weight: isSelected ? 5 : 2,
+            fillColor: color,
+            fillOpacity: 0.96,
+          });
         },
         onEachFeature: (feature, itemLayer) => {
+          const activityFeature = feature as ActivityFeature;
           const props = feature.properties as ActivityProperties;
-          itemLayer.on("click", () => selectFeature(feature as ActivityFeature, false));
-          itemLayer.bindTooltip(`${kindMeta[props.kind].marker} ${props.name || props.id} — ${props.kindLabel} · ${territoryLabel(props.treaty)}`, { sticky: true });
+          const interactiveLayer = itemLayer as ActivityMapLayer;
+          activityFeatureLayers.current.set(activityKey(props), interactiveLayer);
+          itemLayer.on({
+            mouseover: () => applyActivityLayerState(
+              interactiveLayer,
+              activityFeature,
+              selectedKeyRef.current === activityKey(activityFeature) ? "selected" : "hover",
+            ),
+            mouseout: () => applyActivityLayerState(
+              interactiveLayer,
+              activityFeature,
+              selectedKeyRef.current === activityKey(activityFeature) ? "selected" : "default",
+            ),
+            click: () => {
+              interactiveLayer.closeTooltip?.();
+              selectFeature(activityFeature);
+            },
+          });
+          itemLayer.bindTooltip(activityTooltip(props), {
+            sticky: true,
+            direction: "top",
+            opacity: 1,
+            className: "watch-claim-tooltip",
+            offset: [0, -8],
+          });
         },
       }).addTo(mapInstance.current);
       activityLayer.current = layer;
     });
     return () => { active = false; };
   }, [filtered, mapReady, selectFeature]);
+
+  useEffect(() => {
+    activityFeatureLayers.current.forEach((layer, key) => {
+      const feature = layer.feature;
+      if (!feature) return;
+      applyActivityLayerState(layer, feature, key === selectedKey ? "selected" : "default");
+    });
+    if (!selectedKey) return;
+    requestAnimationFrame(() => recordButtons.current.get(selectedKey)?.scrollIntoView({ block: "nearest" }));
+  }, [selectedKey]);
 
   function beginTerritoryWatch() {
     document.getElementById("territory-watch")?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
@@ -818,11 +962,17 @@ export default function MiningPortal() {
             {dataStatus === "loading" && <p className="watch-state-message" role="status">Loading public records…</p>}
             {dataStatus === "error" && <p className="watch-state-message error" role="alert">The public datasets could not be loaded. Please try again or use the official source links below.</p>}
             {dataStatus === "ready" && !filtered.length && <p className="watch-state-message" role="status">No records match this view.</p>}
-            {filtered.slice(0, listLimit).map(feature => <button
+            {listedRecords.map(feature => <button
               key={String(feature.id || `${feature.properties.kind}:${feature.properties.id}`)}
               type="button"
-              className={selected?.properties.id === feature.properties.id ? "active" : ""}
+              className={selectedKey === activityKey(feature) ? "active" : ""}
               onClick={() => selectFeature(feature)}
+              ref={element => {
+                const key = activityKey(feature);
+                if (element) recordButtons.current.set(key, element);
+                else recordButtons.current.delete(key);
+              }}
+              data-record-id={activityKey(feature)}
               aria-label={`${feature.properties.name || feature.properties.id}, ${feature.properties.kindLabel}, ${territoryLabel(feature.properties.treaty)}`}
             >
               <i style={{ color: kindMeta[feature.properties.kind].color }} aria-hidden="true">{kindMeta[feature.properties.kind].marker}</i>
@@ -834,12 +984,13 @@ export default function MiningPortal() {
         </aside>
 
         <div className="territory-watch-map-wrap">
-          <p className="sr-only" id="map-description">The interactive map is paired with an accessible record list. Treaty polygons are historic government-published geographic indexes and are not legal or consultation determinations.</p>
+          <p className="sr-only" id="map-description">The interactive map is paired with an accessible record list. Hover or tap a mining feature to identify it, then select it for full details. Treaty polygons are historic government-published geographic indexes and are not legal or consultation determinations.</p>
           <div ref={mapElement} className="territory-watch-map" role="region" aria-label={`Map of public ${provinceConfig.name} mining activity`} aria-describedby="map-description" />
           <div className="watch-map-legend" aria-label="Map legend">
             <strong>MAP LEGEND</strong>
             {mineralKinds.map(kind => <span key={kind}><i style={{ color: kindMeta[kind].color }} aria-hidden="true">{kindMeta[kind].marker}</i>{kindMeta[kind].short}</span>)}
             <span><i className="boundary-symbol" aria-hidden="true" />Historic treaty boundary</span>
+            <small>Hover or tap a claim to identify it. Select for full details.</small>
           </div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
           {province === "ontario" && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}

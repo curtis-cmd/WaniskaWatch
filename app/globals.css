@@ -324,6 +324,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   text-align: left;
 }
 .watch-record-list > button:not(.watch-load-more):hover, .watch-record-list > button.active { background: #eef3ec; }
+.watch-record-list > button.active { box-shadow: inset 4px 0 0 var(--watch-gold); }
 .watch-record-list > button > i { width: 18px; flex: 0 0 auto; font-style: normal; text-align: center; }
 .watch-record-list > button > span { min-width: 0; flex: 1; }
 .watch-record-list > button strong, .watch-record-list > button small { display: block; }
@@ -351,6 +352,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 }
 .watch-map-legend strong { color: var(--watch-muted); font-size: 10px; letter-spacing: .12em; }
 .watch-map-legend span { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 650; }
+.watch-map-legend small { padding-top: 8px; border-top: 1px solid var(--watch-line); color: var(--watch-muted); font-size: 10px; line-height: 1.45; }
 .boundary-symbol { height: 8px; border-top: 2px dashed var(--watch-forest); }
 .watch-map-source {
   position: absolute;
@@ -520,6 +522,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-support-dialog > small { display: block; margin-top: 18px; color: var(--watch-muted); font-size: 11px; }
 
 .leaflet-tooltip { font-family: var(--watch-sans); font-size: 12px; border-radius: 0 !important; }
+.watch-claim-tooltip {
+  width: min(320px, calc(100vw - 36px));
+  padding: 0;
+  background: var(--watch-white);
+  border: 1px solid #879b91;
+  box-shadow: 8px 8px 0 rgba(12, 41, 38, .18);
+  white-space: normal;
+}
+.watch-claim-tooltip::before { border-top-color: #879b91 !important; }
+.watch-claim-preview { padding: 15px 16px 14px; color: var(--watch-ink); }
+.watch-claim-preview > span { display: block; color: var(--watch-gold); font-size: 9px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.watch-claim-preview > strong { display: block; margin-top: 5px; font: 600 20px/1.15 Georgia, serif; }
+.watch-claim-preview > small { display: block; margin-top: 3px; color: var(--watch-muted); font-size: 10px; }
+.watch-claim-preview dl { margin: 12px 0 0; border-top: 1px solid var(--watch-line); }
+.watch-claim-preview dl > div { display: grid; grid-template-columns: 66px 1fr; gap: 9px; padding: 6px 0; border-bottom: 1px solid #e1e3dc; }
+.watch-claim-preview dt { color: var(--watch-muted); font-size: 10px; }
+.watch-claim-preview dd { margin: 0; overflow-wrap: anywhere; font-size: 10px; font-weight: 750; text-align: right; }
+.watch-claim-preview em { display: block; margin-top: 10px; color: var(--watch-forest); font-size: 10px; font-style: normal; font-weight: 800; }
 .leaflet-control-attribution { font-size: 10px !important; }
 
 @media (max-width: 1050px) {
