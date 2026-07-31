@@ -43,7 +43,7 @@ const kindMeta: Record<MiningKind, { label: string; short: string; color: string
 };
 
 function WatchLogo() {
-  return <span className="watch-logo-crop" aria-hidden="true"><img src="/waniska-watch-logo.png" alt="" /></span>;
+  return <span className="watch-logo-frame"><img src="/waniska-watch-logo.png" alt="Waniskâ Watch" /></span>;
 }
 
 function readableStatus(status: string | null) {
