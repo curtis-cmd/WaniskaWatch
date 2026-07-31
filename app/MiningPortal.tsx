@@ -953,7 +953,7 @@ export default function MiningPortal() {
         <li>Custom territory and project briefings</li>
       </ul>
       <div>
-        <a href="tel:+13062036830">Call 306-203-6830</a>
+        <a href="mailto:info@waniskaservices.ca">info@waniskaservices.ca</a>
         <a href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">Visit Waniskâ Services ↗</a>
       </div>
       <small>Do not include confidential cultural, land-use or personal information in an initial inquiry.</small>

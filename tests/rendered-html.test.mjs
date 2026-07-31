@@ -55,6 +55,8 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
   assert.match(portal, /\/waniska-services-logo\.png/);
   assert.match(portal, /A free community resource from/);
   assert.match(portal, /See the activity\. Know the territory\./);
+  assert.match(portal, /mailto:info@waniskaservices\.ca/);
+  assert.doesNotMatch(portal, /306-203-6830|tel:\+13062036830/);
   assert.match(layout, /Waniskâ Watch/);
   assert.match(layout, /https:\/\/app\.waniskaservices\.ca\/watch\/og\.png/);
   assert.match(layout, /summary_large_image/);
