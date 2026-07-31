@@ -492,30 +492,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   font: 500 clamp(34px, 4.1vw, 55px)/1.04 Georgia, serif;
   letter-spacing: -.035em;
 }
-.watch-legal-heading > p { max-width: 780px; color: var(--watch-muted); font-size: 14px; line-height: 1.7; }
-.watch-legal-terms {
+.watch-legal-notice {
+  max-width: 980px;
   margin-top: 34px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid var(--watch-line);
-  border-left: 1px solid var(--watch-line);
-}
-.watch-legal-terms article {
   padding: 24px;
-  border-right: 1px solid var(--watch-line);
-  border-bottom: 1px solid var(--watch-line);
-  background: rgba(255, 254, 250, .55);
+  background: #eee7d8;
+  border-left: 5px solid var(--watch-gold);
 }
-.watch-legal-terms h3 { margin: 0 0 10px; font: 600 20px/1.2 Georgia, serif; }
-.watch-legal-terms p { margin: 0; color: var(--watch-muted); font-size: 12px; line-height: 1.65; }
-.watch-legal-acknowledgement {
-  margin: 20px 0 0;
-  padding: 18px 20px;
-  background: var(--watch-forest-dark);
-  color: #edf3ef;
-  font-size: 12px;
-  line-height: 1.6;
-}
+.watch-legal-notice p { margin: 0; color: #625a49; font-size: 13px; line-height: 1.7; }
+.watch-legal-notice p + p { margin-top: 14px; padding-top: 14px; border-top: 1px solid #d3c4a5; }
 
 .watch-services-band {
   background: var(--watch-forest-dark);
@@ -624,7 +609,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .watch-trust-points h3 { margin-top: 16px; }
   .watch-boundary-note { grid-template-columns: 1fr; }
   .watch-boundary-note span { grid-column: 1; }
-  .watch-reliance-banner, .watch-legal-terms { grid-template-columns: 1fr; }
+  .watch-reliance-banner { grid-template-columns: 1fr; }
   .watch-services-band { align-items: flex-start; flex-direction: column; }
 }
 

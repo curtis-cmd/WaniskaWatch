@@ -931,7 +931,7 @@ export default function MiningPortal() {
 
       <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
         <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
-        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the full legal notice.</a></span>
+        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the information notice.</a></span>
       </aside>
 
       <div className="territory-watch-workspace">
@@ -1119,37 +1119,13 @@ export default function MiningPortal() {
 
     <section className="watch-legal-section" id="legal-notice" aria-labelledby="legal-title">
       <div className="watch-legal-heading">
-        <span className="watch-eyebrow">LEGAL &amp; RELIANCE NOTICE</span>
-        <h2 id="legal-title">Use this platform for awareness—not as a basis for decisions.</h2>
-        <p><strong>Waniskâ Watch presents publicly available information for general awareness only. The information must be independently verified and must not be relied upon.</strong> It does not replace official registries, professional advice, community engagement, consultation or independent due diligence.</p>
+        <span className="watch-eyebrow">INFORMATION NOTICE</span>
+        <h2 id="legal-title">Public and third-party information</h2>
       </div>
-      <div className="watch-legal-terms">
-        <article>
-          <h3>No advice or legal determination</h3>
-          <p>Content is provided for general information and community awareness only. It is not legal, regulatory, environmental, technical, financial, investment, consultation, land-use or other professional advice. Nothing on this platform determines Aboriginal or treaty rights, title, territorial boundaries, ownership, access rights, claim validity, project authorization, regulatory compliance, consultation or accommodation obligations, consent, or community support.</p>
-        </article>
-        <article>
-          <h3>Independent verification required</h3>
-          <p>Do not make a decision or take—or refrain from taking—any action in reliance on Waniskâ Watch. Before acting, verify the information directly with the responsible government registry, obtain advice from appropriately qualified professionals, and engage the affected Nation, community, rights holder, lands office or consultation office as appropriate.</p>
-        </article>
-        <article>
-          <h3>Public and third-party information</h3>
-          <p>Records, maps, boundaries, contacts and links are compiled from government and other third-party sources. They may be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
-        </article>
-        <article>
-          <h3>No warranties</h3>
-          <p>To the fullest extent permitted by applicable law, Waniskâ Watch and Waniskâ Services provide the platform and its content “as is” and “as available,” without representations, guarantees or warranties of any kind, whether express, implied or statutory, including accuracy, completeness, currency, availability, fitness for a particular purpose or non-infringement.</p>
-        </article>
-        <article>
-          <h3>Limitation of liability</h3>
-          <p>To the fullest extent permitted by applicable law, Waniskâ Services and its owners, directors, officers, employees, contractors, agents and affiliates are not responsible or liable for any loss, damage, cost, claim, decision, delay or consequence arising from or connected with access to, use of, inability to use, or reliance on this platform or any linked third-party information, whether arising in contract, tort—including negligence—statute or otherwise.</p>
-        </article>
-        <article>
-          <h3>Rights that cannot be excluded</h3>
-          <p>Nothing in this notice excludes, restricts or modifies any responsibility or liability that cannot lawfully be excluded, restricted or modified. If you require advice about these terms or your intended use of the information, consult a qualified lawyer before relying on the platform.</p>
-        </article>
+      <div className="watch-legal-notice">
+        <p>Records, maps, boundaries, contacts and links are compiled from publicly available government and other third-party sources. They may be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
+        <p><strong>The information must be independently verified and must not be relied upon.</strong> Before acting, confirm the information with the responsible government registry and the affected Nation, community, rights holder, lands office or consultation office, as appropriate.</p>
       </div>
-      <p className="watch-legal-acknowledgement">By accessing or using Waniskâ Watch, you acknowledge that you have read and understood these limitations and that you remain responsible for independently verifying information before making decisions or taking action.</p>
     </section>
 
     <section className="watch-services-band">
@@ -1163,7 +1139,7 @@ export default function MiningPortal() {
         <span>A free community resource from Waniskâ Services.</span>
         <img src={appPath("/waniska-services-logo.png")} alt="" />
       </a>
-      <p>Government data · Independent presentation<br />No account required · <a href="#legal-notice">Legal &amp; reliance notice</a></p>
+      <p>Government data · Independent presentation<br />No account required · <a href="#legal-notice">Information notice</a></p>
     </footer>
 
     <dialog className="watch-support-dialog" ref={supportDialog} aria-labelledby="support-title">
