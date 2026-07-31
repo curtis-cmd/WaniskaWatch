@@ -1,7 +1,7 @@
-# Waniskâ Minerals Watch
+# Waniskâ Watch
 
-An independent Waniskâ platform for community-first mining intelligence by
-treaty territory.
+A Waniskâ Services product for community-first mining intelligence by treaty
+territory.
 
 The platform maps Manitoba mining claims, exploration licences, mineral leases,
 and mine sites; preserves Government of Manitoba source evidence; and connects
@@ -13,7 +13,7 @@ The product is intentionally separate from Waniskâ Payroll. It has its own:
 - production deployment and access policy
 - D1 database binding and schema
 - data-refresh pipeline
-- brand metadata and social preview
+- brand identity and metadata
 
 See `docs/MANITOBA_MINING_DATABASE.md` for source, methodology, limitations,
 refresh instructions, and treaty-boundary cautions.

@@ -8,7 +8,7 @@ This dataset is a reproducible SQLite database built from Government of Manitoba
 - `data/manitoba-mining/processed/treaty_summary.csv` — counts and claim-overlap area by treaty
 - `data/manitoba-mining/processed/records_by_treaty.csv` — analysis-ready flat export
 - `data/manitoba-mining/processed/unassigned_records.csv` — records that could not be assigned
-- `public/data/manitoba-mining.json` — browser-ready GeoJSON used by Waniskâ Minerals Watch
+- `public/data/manitoba-mining.json` — browser-ready GeoJSON used by Waniskâ Watch
 - `/mining` — treaty-filtered portal with mapped records and published holder evidence
 
 ## Included Government Layers

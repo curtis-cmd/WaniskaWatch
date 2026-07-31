@@ -42,8 +42,8 @@ const kindMeta: Record<MiningKind, { label: string; short: string; color: string
   mine: { label: "Mine sites", short: "Mine sites", color: "#c6543d" },
 };
 
-function BrandMark() {
-  return <span className="mining-brand-mark" aria-hidden="true"><i /><i /><i /></span>;
+function WatchLogo() {
+  return <span className="watch-logo-crop" aria-hidden="true"><img src="/waniska-watch-logo.png" alt="" /></span>;
 }
 
 function readableStatus(status: string | null) {
@@ -198,7 +198,7 @@ export default function MiningPortal() {
 
   return <main className="mining-portal">
     <header className="mining-header">
-      <a className="mining-brand" href="/"><BrandMark /><span><strong>Waniskâ</strong><small>MINERALS WATCH</small></span></a>
+      <a className="mining-brand" href="/"><WatchLogo /><span><strong>Waniskâ</strong><small>WATCH</small></span></a>
       <nav aria-label="Mining portal navigation"><a href="#map">Map</a><a href="#records">Records</a><a href="#method">About the data</a></nav>
       <a className="mining-government-link" href="https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf" target="_blank" rel="noreferrer">Open Manitoba iMaQs ↗</a>
     </header>
@@ -275,6 +275,16 @@ export default function MiningPortal() {
       <div className="mining-method-meta"><span>{visibleHolderCount.toLocaleString("en-CA")} visible records currently include a published holder or owner</span><a href={dataset?.metadata.sourceUrl || "https://rdmaps.gov.mb.ca/arcgis/rest/services/iMaQs/imaqsMining/MapServer"} target="_blank" rel="noreferrer">Government of Manitoba source ↗</a></div>
     </section>
 
-    <footer className="mining-footer"><a className="mining-brand" href="/"><BrandMark /><span><strong>Waniskâ</strong><small>MINERALS WATCH</small></span></a><p>Community-first mineral intelligence for informed decisions.</p><span>Government data · Independent presentation</span></footer>
+    <footer className="mining-footer">
+      <div className="mining-footer-primary">
+        <a className="mining-brand" href="/"><WatchLogo /><span><strong>Waniskâ</strong><small>WATCH</small></span></a>
+        <p>Community-first mineral intelligence for informed decisions.</p>
+      </div>
+      <a className="mining-product-of" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
+        <span>A PRODUCT OF</span>
+        <img src="/waniska-services-logo.png" alt="Waniskâ Services" />
+      </a>
+      <span className="mining-footer-source">Government data · Independent presentation</span>
+    </footer>
   </main>;
 }
