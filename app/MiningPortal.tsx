@@ -900,7 +900,7 @@ export default function MiningPortal() {
 
       <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
         <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
-        <span>Public records may be incomplete, delayed or inaccurate. Verify every record with the responsible government, qualified advisers and the affected Nation or community before acting. <a href="#legal-notice">Read the full legal notice.</a></span>
+        <span>This platform presents publicly available information that may be incomplete, delayed or inaccurate. It must be independently verified and must not be relied upon. Verify every record with the responsible government, qualified advisers and the affected Nation or community before acting. <a href="#legal-notice">Read the full legal notice.</a></span>
       </aside>
 
       <div className="territory-watch-workspace">
@@ -1090,7 +1090,7 @@ export default function MiningPortal() {
       <div className="watch-legal-heading">
         <span className="watch-eyebrow">LEGAL &amp; RELIANCE NOTICE</span>
         <h2 id="legal-title">Use this platform for awareness—not as a basis for decisions.</h2>
-        <p><strong>Waniskâ Watch is a free informational resource.</strong> It does not replace official registries, professional advice, community engagement, consultation or independent due diligence.</p>
+        <p><strong>Waniskâ Watch presents publicly available information for general awareness only. The information must be independently verified and must not be relied upon.</strong> It does not replace official registries, professional advice, community engagement, consultation or independent due diligence.</p>
       </div>
       <div className="watch-legal-terms">
         <article>
