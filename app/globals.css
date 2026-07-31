@@ -70,17 +70,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 }
 .watch-brand { display: flex; align-items: center; text-decoration: none; }
 .watch-header .watch-brand {
-  width: 146px;
-  height: 100px;
+  width: 182px;
+  height: 90px;
   overflow: hidden;
-  flex: 0 0 146px;
+  flex: 0 0 182px;
 }
 .watch-logo { display: block; width: 82px; height: 82px; object-fit: contain; }
 .watch-header .watch-logo {
-  width: 190px;
-  height: 190px;
+  width: 196px;
+  height: 196px;
   max-width: none;
-  transform: translate(-20px, -56px);
+  transform: translate(-10px, -52px);
 }
 .watch-header nav { display: flex; gap: 28px; margin-left: auto; }
 .watch-header nav a {
@@ -538,8 +538,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 @media (max-width: 820px) {
   .watch-header { height: 92px; padding-inline: 17px; }
   .watch-header nav { display: none; }
-  .watch-header .watch-brand { width: 124px; height: 86px; flex-basis: 124px; }
-  .watch-header .watch-logo { width: 162px; height: 162px; transform: translate(-17px, -48px); }
+  .watch-header .watch-brand { width: 148px; height: 76px; flex-basis: 148px; }
+  .watch-header .watch-logo { width: 160px; height: 160px; transform: translate(-8px, -45px); }
   .watch-support-button { margin-left: auto; }
   .watch-hero { padding-top: 46px; }
   .watch-hero h1 { font-size: clamp(40px, 10vw, 64px); }
