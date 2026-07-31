@@ -7,6 +7,7 @@ import type { GeoJSON as LeafletGeoJSON, Map as LeafletMap } from "leaflet";
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
 type DataStatus = "loading" | "ready" | "error";
+type ProvinceKey = "manitoba" | "saskatchewan" | "ontario";
 type ContactInfo = {
   name: string;
   email?: string;
@@ -47,7 +48,11 @@ type ActivityDataset = FeatureCollection<Geometry, ActivityProperties> & {
     source: string;
     sourceUrl: string;
     featureCount: number;
+    databaseRecordCount?: number;
+    counts?: Partial<Record<"claim" | "exploration" | "operation", number>>;
+    recordedHolderCount?: number;
     treatyCounts?: Record<string, number>;
+    claimDelivery?: "included" | "viewport-live";
     locationNote?: string;
   };
 };
@@ -81,6 +86,35 @@ const kindMeta: Record<ActivityKind, { label: string; short: string; color: stri
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const appPath = (path: string) => `${basePath}${path}`;
+const provinces: Record<ProvinceKey, {
+  name: string;
+  miningPath: string;
+  territoryPath: string;
+  center: [number, number];
+  zoom: number;
+}> = {
+  manitoba: {
+    name: "Manitoba",
+    miningPath: "/data/manitoba-mining.json",
+    territoryPath: "/data/manitoba-treaties.json",
+    center: [55.15, -97.2],
+    zoom: 5,
+  },
+  saskatchewan: {
+    name: "Saskatchewan",
+    miningPath: "/data/saskatchewan-mining.json",
+    territoryPath: "/data/saskatchewan-territories.json",
+    center: [54.5, -106],
+    zoom: 5,
+  },
+  ontario: {
+    name: "Ontario",
+    miningPath: "/data/ontario-mining.json",
+    territoryPath: "/data/ontario-territories.json",
+    center: [50.1, -85.3],
+    zoom: 5,
+  },
+};
 
 function WatchLogo() {
   return <img className="watch-logo" src={appPath("/waniska-watch-logo.png")} alt="Waniskâ Watch" />;
@@ -116,14 +150,64 @@ function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function geometryCentre(geometry: Geometry): [number, number] {
+  const points: Array<[number, number]> = [];
+  const visit = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
+      points.push([value[0], value[1]]);
+      return;
+    }
+    value.forEach(visit);
+  };
+  if (geometry.type === "GeometryCollection") {
+    geometry.geometries.forEach(item => {
+      const centre = geometryCentre(item);
+      points.push(centre);
+    });
+  } else {
+    visit(geometry.coordinates);
+  }
+  if (!points.length) return [0, 0];
+  const longitude = points.reduce((sum, point) => sum + point[0], 0) / points.length;
+  const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
+  return [longitude, latitude];
+}
+
+function pointInRing(longitude: number, latitude: number, ring: number[][]) {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const currentPoint = ring[index];
+    const previousPoint = ring[previous];
+    const intersects = ((currentPoint[1] > latitude) !== (previousPoint[1] > latitude))
+      && longitude < (previousPoint[0] - currentPoint[0]) * (latitude - currentPoint[1])
+      / ((previousPoint[1] - currentPoint[1]) || Number.EPSILON) + currentPoint[0];
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInTerritory(longitude: number, latitude: number, geometry: Geometry) {
+  const inPolygon = (polygon: number[][][]) => (
+    Boolean(polygon[0] && pointInRing(longitude, latitude, polygon[0]))
+    && !polygon.slice(1).some(ring => pointInRing(longitude, latitude, ring))
+  );
+  if (geometry.type === "Polygon") return inPolygon(geometry.coordinates);
+  if (geometry.type === "MultiPolygon") return geometry.coordinates.some(inPolygon);
+  return false;
+}
+
 export default function MiningPortal() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
   const activityLayer = useRef<LeafletGeoJSON | null>(null);
   const treatyLayer = useRef<LeafletGeoJSON | null>(null);
   const supportDialog = useRef<HTMLDialogElement>(null);
+  const [province, setProvince] = useState<ProvinceKey>("manitoba");
   const [miningDataset, setMiningDataset] = useState<ActivityDataset | null>(null);
   const [treatyDataset, setTreatyDataset] = useState<TreatyDataset | null>(null);
+  const [liveClaims, setLiveClaims] = useState<ActivityFeature[]>([]);
+  const [claimViewportNote, setClaimViewportNote] = useState<string | null>(null);
   const [contacts, setContacts] = useState<ContactDirectory | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus>("loading");
   const [territory, setTerritory] = useState("All Manitoba");
@@ -138,14 +222,17 @@ export default function MiningPortal() {
   const [listLimit, setListLimit] = useState(60);
   const [mapReady, setMapReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const provinceConfig = provinces[province];
+  const allTerritoriesLabel = `All ${provinceConfig.name}`;
 
   useEffect(() => {
+    let active = true;
     Promise.all([
-      fetch(appPath("/data/manitoba-mining.json")).then(response => {
+      fetch(appPath(provinces[province].miningPath)).then(response => {
         if (!response.ok) throw new Error("Mining dataset unavailable");
         return response.json();
       }),
-      fetch(appPath("/data/manitoba-treaties.json")).then(response => {
+      fetch(appPath(provinces[province].territoryPath)).then(response => {
         if (!response.ok) throw new Error("Territory dataset unavailable");
         return response.json();
       }),
@@ -154,6 +241,7 @@ export default function MiningPortal() {
         return response.json();
       }),
     ]).then(([mining, treaties, directory]) => {
+      if (!active) return;
       setMiningDataset(mining);
       setTreatyDataset(treaties);
       setContacts(directory);
@@ -176,15 +264,17 @@ export default function MiningPortal() {
         }
       }
     }).catch(() => {
+      if (!active) return;
       setMiningDataset(null);
       setTreatyDataset(null);
       setContacts(null);
       setDataStatus("error");
     });
-  }, []);
+    return () => { active = false; };
+  }, [province]);
 
   const activities = useMemo<ActivityFeature[]>(() => {
-    return (miningDataset?.features || []).map(feature => ({
+    return [...(miningDataset?.features || []), ...liveClaims].map(feature => ({
       ...feature,
       properties: {
         ...feature.properties,
@@ -195,14 +285,14 @@ export default function MiningPortal() {
         lastUpdated: feature.properties.lastUpdated || miningDataset?.metadata.generatedAt,
       },
     }));
-  }, [miningDataset]);
+  }, [liveClaims, miningDataset]);
 
   const territoryNames = useMemo(() => {
     const published = treatyDataset?.features.map(feature => feature.properties.name)
       || ["Treaty 1", "Treaty 2", "Treaty 3", "Treaty 4", "Treaty 5"];
     const hasUnassigned = activities.some(feature => feature.properties.treaty === "Unassigned");
-    return ["All Manitoba", ...published, ...(hasUnassigned ? ["Unassigned"] : [])];
-  }, [activities, treatyDataset]);
+    return [allTerritoriesLabel, ...published, ...(hasUnassigned ? ["Unassigned"] : [])];
+  }, [activities, allTerritoriesLabel, treatyDataset]);
 
   const territoryMeta = useMemo(() => new Map(
     treatyDataset?.features.map(feature => [feature.properties.name, feature.properties]) || [],
@@ -229,7 +319,7 @@ export default function MiningPortal() {
     const normalized = query.trim().toLowerCase();
     return activities.filter(feature => {
       const item = feature.properties;
-      if (territory !== "All Manitoba" && item.treaty !== territory) return false;
+      if (territory !== allTerritoriesLabel && item.treaty !== territory) return false;
       if (!activeMineralKinds.has(item.kind)) return false;
       if (holderFilter && item.holder !== holderFilter) return false;
       if (statusFilter && item.status !== statusFilter) return false;
@@ -250,16 +340,21 @@ export default function MiningPortal() {
         item.kindLabel,
       ].some(value => String(value ?? "").toLowerCase().includes(normalized));
     });
-  }, [activities, territory, activeMineralKinds, query, holderFilter, statusFilter, commodityFilter, issueFrom, issueTo]);
+  }, [activities, territory, allTerritoriesLabel, activeMineralKinds, query, holderFilter, statusFilter, commodityFilter, issueFrom, issueTo]);
 
   const mineralCounts = useMemo(() => {
     const counts: Record<ActivityKind, number> = { claim: 0, exploration: 0, lease: 0, mine: 0 };
     activities.forEach(feature => {
-      if (territory !== "All Manitoba" && feature.properties.treaty !== territory) return;
+      if (territory !== allTerritoriesLabel && feature.properties.treaty !== territory) return;
       counts[feature.properties.kind]++;
     });
+    if (territory === allTerritoriesLabel && miningDataset?.metadata.counts) {
+      counts.claim = miningDataset.metadata.counts.claim ?? counts.claim;
+      counts.exploration = miningDataset.metadata.counts.exploration ?? counts.exploration;
+      counts.lease = miningDataset.metadata.counts.operation ?? counts.lease;
+    }
     return counts;
-  }, [activities, territory]);
+  }, [activities, allTerritoriesLabel, miningDataset, territory]);
 
   const selectTerritory = useCallback((nextTerritory: string) => {
     setTerritory(nextTerritory);
@@ -296,7 +391,7 @@ export default function MiningPortal() {
         zoomControl: false,
         minZoom: 4,
         scrollWheelZoom: false,
-      }).setView([55.15, -97.2], 5);
+      }).setView(provinceConfig.center, provinceConfig.zoom);
       L.control.zoom({ position: "bottomright" }).addTo(map);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: 'Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -306,7 +401,7 @@ export default function MiningPortal() {
       setMapReady(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [provinceConfig.center, provinceConfig.zoom]);
 
   useEffect(() => {
     if (!mapReady || !mapInstance.current || !treatyDataset) return;
@@ -317,7 +412,7 @@ export default function MiningPortal() {
       const layer = L.geoJSON(treatyDataset, {
         style: feature => {
           const props = feature?.properties as TreatyProperties;
-          const highlighted = territory === "All Manitoba" || territory === props.name;
+          const highlighted = territory === allTerritoriesLabel || territory === props.name;
           return {
             color: props.color,
             dashArray: territory === props.name ? undefined : "5 4",
@@ -336,18 +431,115 @@ export default function MiningPortal() {
       layer.bringToBack();
       treatyLayer.current = layer;
 
-      if (territory !== "All Manitoba" && territory !== "Unassigned") {
+      if (territory !== allTerritoriesLabel && territory !== "Unassigned") {
         const selectedTreaty = treatyDataset.features.find(feature => feature.properties.name === territory);
         if (selectedTreaty) {
           const bounds = L.geoJSON(selectedTreaty).getBounds();
           if (bounds.isValid()) mapInstance.current.fitBounds(bounds.pad(0.04), { maxZoom: 7, animate: !prefersReducedMotion() });
         }
       } else {
-        mapInstance.current.setView([55.15, -97.2], 5, { animate: !prefersReducedMotion() });
+        mapInstance.current.setView(provinceConfig.center, provinceConfig.zoom, { animate: !prefersReducedMotion() });
       }
     });
     return () => { active = false; };
-  }, [mapReady, selectTerritory, treatyDataset, territory]);
+  }, [allTerritoriesLabel, mapReady, provinceConfig.center, provinceConfig.zoom, selectTerritory, treatyDataset, territory]);
+
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!mapReady || !map || province !== "ontario" || !treatyDataset) {
+      setLiveClaims([]);
+      return;
+    }
+    let active = true;
+    let controller: AbortController | null = null;
+    const loadClaims = async () => {
+      const zoom = map.getZoom();
+      if (zoom < 9) {
+        controller?.abort();
+        setLiveClaims([]);
+        setClaimViewportNote("Zoom in to level 9 or closer to load Ontario claim polygons from MLAS.");
+        return;
+      }
+      controller?.abort();
+      controller = new AbortController();
+      const bounds = map.getBounds();
+      const params = new URLSearchParams({
+        west: String(bounds.getWest()),
+        south: String(bounds.getSouth()),
+        east: String(bounds.getEast()),
+        north: String(bounds.getNorth()),
+        zoom: String(zoom),
+      });
+      setClaimViewportNote("Loading Ontario claims in this map view…");
+      try {
+        const response = await fetch(appPath(`/api/claims/ontario?${params}`), {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Claim service unavailable");
+        const payload = await response.json();
+        if (!active) return;
+        const claims: ActivityFeature[] = (payload.features || []).map((
+          feature: Feature<Geometry, Record<string, string | number | null>>,
+        ) => {
+          const properties = feature.properties || {};
+          const [longitude, latitude] = geometryCentre(feature.geometry);
+          const treatyMatch = treatyDataset.features.find(item => (
+            pointInTerritory(longitude, latitude, item.geometry)
+          ));
+          const dateValue = (value: string | number | null | undefined) => {
+            if (value == null || value === "") return null;
+            if (typeof value === "number") return new Date(value).toISOString().slice(0, 10);
+            return String(value);
+          };
+          const id = String(properties.TENURE_NUMBER_ID || properties.OBJECTID);
+          return {
+            type: "Feature",
+            id: `ontario:claim:${properties.OBJECTID}`,
+            geometry: feature.geometry,
+            properties: {
+              id,
+              name: id,
+              kind: "claim",
+              kindLabel: "Mining claim",
+              sector: "minerals",
+              sectorLabel: "Minerals",
+              status: properties.TENURE_STATUS_DESC ? String(properties.TENURE_STATUS_DESC) : null,
+              treaty: treatyMatch?.properties.name || "Unassigned",
+              areaHa: null,
+              commodity: null,
+              holder: properties.HOLDER ? String(properties.HOLDER) : null,
+              holderEvidence: properties.HOLDER ? "Published Ontario MLAS holder field" : null,
+              issueDate: dateValue(properties.ISSUE_DATE),
+              expiryDate: dateValue(properties.CLAIM_DUE_DATE),
+              longitude,
+              latitude,
+              sourceUrl: payload.metadata?.sourceUrl,
+              sourceName: payload.metadata?.source,
+              lastUpdated: miningDataset?.metadata.generatedAt || null,
+              locationAccuracy: "Government-published claim geometry loaded for this map view",
+            },
+          } satisfies ActivityFeature;
+        });
+        setLiveClaims(claims);
+        setClaimViewportNote(
+          payload.metadata?.truncated
+            ? `${Number(payload.metadata.count).toLocaleString("en-CA")} claims intersect this view; showing the first 2,000. Zoom in for complete local detail.`
+            : `${claims.length.toLocaleString("en-CA")} Ontario claim polygons loaded in this view.`,
+        );
+      } catch (error) {
+        if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
+        setLiveClaims([]);
+        setClaimViewportNote("Ontario MLAS claim polygons could not be loaded. Try moving the map or use the official source link.");
+      }
+    };
+    map.on("moveend", loadClaims);
+    void loadClaims();
+    return () => {
+      active = false;
+      controller?.abort();
+      map.off("moveend", loadClaims);
+    };
+  }, [mapReady, miningDataset?.metadata.generatedAt, province, treatyDataset]);
 
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
@@ -380,6 +572,18 @@ export default function MiningPortal() {
 
   function beginTerritoryWatch() {
     document.getElementById("territory-watch")?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }
+
+  function changeProvince(nextProvince: ProvinceKey) {
+    setProvince(nextProvince);
+    setDataStatus("loading");
+    setMiningDataset(null);
+    setTreatyDataset(null);
+    setLiveClaims([]);
+    setClaimViewportNote(null);
+    setTerritory(`All ${provinces[nextProvince].name}`);
+    setSelected(null);
+    setListLimit(60);
   }
 
   function toggleMineralKind(kind: ActivityKind) {
@@ -448,7 +652,8 @@ export default function MiningPortal() {
   }
 
   const publishedContact = selected ? contactFor(selected) : null;
-  const identifiedProponents = new Set(filtered.map(feature => feature.properties.holder).filter(Boolean)).size;
+  const identifiedProponents = miningDataset?.metadata.recordedHolderCount
+    ?? new Set(filtered.map(feature => feature.properties.holder).filter(Boolean)).size;
   const generatedAt = miningDataset?.metadata.generatedAt;
   const updated = formatDate(generatedAt, "Loading");
   const boundaryUpdated = formatDate(treatyDataset?.metadata.generatedAt, "Not available");
@@ -486,11 +691,17 @@ export default function MiningPortal() {
         <h2 id="start-heading">Where do you want to look?</h2>
         <label>
           <span>Province or territory</span>
-          <select value="Manitoba" aria-describedby="coverage-note">
-            <option>Manitoba</option>
+          <select
+            value={province}
+            onChange={event => changeProvince(event.target.value as ProvinceKey)}
+            aria-describedby="coverage-note"
+          >
+            <option value="manitoba">Manitoba</option>
+            <option value="saskatchewan">Saskatchewan</option>
+            <option value="ontario">Ontario</option>
           </select>
         </label>
-        <p id="coverage-note"><strong>Manitoba coverage is live.</strong> Additional provinces and territories will be added only when their public records and territorial context can be documented responsibly.</p>
+        <p id="coverage-note"><strong>{provinceConfig.name} coverage is live.</strong> Records are kept in province-specific source pipelines so differences between registries remain visible and auditable.</p>
         <fieldset>
           <legend>Choose a published geographic view</legend>
           <div className="watch-place-options">
@@ -502,7 +713,9 @@ export default function MiningPortal() {
               onClick={() => selectTerritory(item)}
             >
               <span>{territoryLabel(item)}</span>
-              <small>{item === "All Manitoba" ? activities.length.toLocaleString("en-CA") : (territoryCounts[item] || 0).toLocaleString("en-CA")} records</small>
+              <small>{item === allTerritoriesLabel
+                ? (miningDataset?.metadata.databaseRecordCount || activities.length).toLocaleString("en-CA")
+                : (miningDataset?.metadata.treatyCounts?.[item] || territoryCounts[item] || 0).toLocaleString("en-CA")} records</small>
             </button>)}
           </div>
         </fieldset>
@@ -521,18 +734,18 @@ export default function MiningPortal() {
       <div><span>PUBLIC DATA SNAPSHOT</span><strong>{updated}</strong></div>
       <div><span>VISIBLE RECORDS</span><strong>{filtered.length.toLocaleString("en-CA")}</strong></div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
-      <div><span>CURRENT COVERAGE</span><strong>Manitoba</strong></div>
+      <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
       <p><i /> Free public resource · no account required</p>
     </section>
 
     <section className="territory-watch-section" id="territory-watch" aria-labelledby="territory-watch-title">
       <div className="territory-watch-heading">
         <div>
-          <span className="watch-eyebrow">TERRITORY WATCH · MANITOBA</span>
+          <span className="watch-eyebrow">TERRITORY WATCH · {provinceConfig.name.toUpperCase()}</span>
           <h2 id="territory-watch-title">{territoryLabel(territory)}</h2>
         </div>
         <div className="territory-watch-context">
-          <span>{selectedTerritoryMeta ? `Historic treaty signed ${selectedTerritoryMeta.year}` : territory === "Unassigned" ? "No published polygon match" : "Province-wide view"}</span>
+          <span>{selectedTerritoryMeta ? `${selectedTerritoryMeta.year ? `Historic treaty signed ${selectedTerritoryMeta.year}` : "Published historic treaty area"}` : territory === "Unassigned" ? "No published polygon match" : "Province-wide view"}</span>
           <b>Geographic index—not a rights determination</b>
         </div>
       </div>
@@ -586,7 +799,7 @@ export default function MiningPortal() {
                   <option value="">All published commodities</option>
                   {filterOptions.commodities.map(commodity => <option key={commodity} value={commodity}>{commodity}</option>)}
                 </select>
-                <small>Commodity is missing from most Manitoba public records.</small>
+                <small>Commodity fields vary by provincial source and are not published for most claim records.</small>
               </label>
               <div className="watch-year-range">
                 <label><span>Issue year from</span><input inputMode="numeric" pattern="[0-9]*" value={issueFrom} onChange={event => updateAdvancedFilter(() => setIssueFrom(event.target.value.replace(/\D/g, "").slice(0, 4)))} placeholder="e.g. 2020" /></label>
@@ -602,7 +815,7 @@ export default function MiningPortal() {
             {dataStatus === "error" && <p className="watch-state-message error" role="alert">The public datasets could not be loaded. Please try again or use the official source links below.</p>}
             {dataStatus === "ready" && !filtered.length && <p className="watch-state-message" role="status">No records match this view.</p>}
             {filtered.slice(0, listLimit).map(feature => <button
-              key={String(feature.properties.id)}
+              key={String(feature.id || `${feature.properties.kind}:${feature.properties.id}`)}
               type="button"
               className={selected?.properties.id === feature.properties.id ? "active" : ""}
               onClick={() => selectFeature(feature)}
@@ -618,13 +831,14 @@ export default function MiningPortal() {
 
         <div className="territory-watch-map-wrap">
           <p className="sr-only" id="map-description">The interactive map is paired with an accessible record list. Treaty polygons are historic government-published geographic indexes and are not legal or consultation determinations.</p>
-          <div ref={mapElement} className="territory-watch-map" role="region" aria-label="Map of public Manitoba mining activity" aria-describedby="map-description" />
+          <div ref={mapElement} className="territory-watch-map" role="region" aria-label={`Map of public ${provinceConfig.name} mining activity`} aria-describedby="map-description" />
           <div className="watch-map-legend" aria-label="Map legend">
             <strong>MAP LEGEND</strong>
             {mineralKinds.map(kind => <span key={kind}><i style={{ color: kindMeta[kind].color }} aria-hidden="true">{kindMeta[kind].marker}</i>{kindMeta[kind].short}</span>)}
             <span><i className="boundary-symbol" aria-hidden="true" />Historic treaty boundary</span>
           </div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
+          {province === "ontario" && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
 
           {selected && <article className="watch-record-detail" aria-labelledby="record-title">
             <div className="watch-record-detail-head">
@@ -636,7 +850,7 @@ export default function MiningPortal() {
             <p>Public record ID {selected.properties.id}</p>
             {selected.properties.description && <p className="watch-record-description">{selected.properties.description}</p>}
             <dl>
-              <div><dt>Province</dt><dd>Manitoba</dd></div>
+              <div><dt>Province</dt><dd>{provinceConfig.name}</dd></div>
               <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Spatially inferred primary polygon match; other overlaps may exist</small></dd></div>
               <div><dt>Recorded holder</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Source evidence available" : "Completeness limited"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
@@ -684,7 +898,7 @@ export default function MiningPortal() {
         <article><b>03</b><h3>Public data has limits</h3><p>Government records may be incomplete, delayed or differently structured. Confirm decisions with official sources and local lands or consultation offices.</p></article>
       </div>
       <div className="watch-boundary-note">
-        <strong>Current Manitoba boundary treatment</strong>
+        <strong>Current {provinceConfig.name} boundary treatment</strong>
         <p>{treatyDataset?.metadata.boundaryNote || "Government-published historic-treaty polygons are used only as a geographic index. They do not determine rights, traditional territory or duty-to-consult obligations."}</p>
         <span>Where publication is authorized, Nation-verified information will take priority over generalized government boundaries. Future Nation-authorized submissions will require governance rules consistent with Indigenous data sovereignty, including consideration of OCAP® where applicable.</span>
       </div>
@@ -700,7 +914,7 @@ export default function MiningPortal() {
         <article>
           <span>MINING RECORDS</span>
           <h3>{miningDataset?.metadata.source || "Government of Manitoba iMaQs"}</h3>
-          <dl><div><dt>Retrieved</dt><dd>{updated}</dd></div><div><dt>Coverage</dt><dd>{activities.length.toLocaleString("en-CA")} records</dd></div><div><dt>Status</dt><dd>Government source</dd></div></dl>
+          <dl><div><dt>Retrieved</dt><dd>{updated}</dd></div><div><dt>Coverage</dt><dd>{(miningDataset?.metadata.databaseRecordCount || activities.length).toLocaleString("en-CA")} records</dd></div><div><dt>Status</dt><dd>Government source</dd></div></dl>
           <a href={miningDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open mining source ↗</a>
         </article>
         <article>

@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-31T05:49:50.630438+00:00",
+    "note": "Verified provincial mining coverage available in Waniskâ Watch."
+  },
+  "provinces": [
+    {
+      "key": "saskatchewan",
+      "name": "Saskatchewan",
+      "abbreviation": "SK",
+      "generatedAt": "2026-07-31T05:33:41.971919+00:00",
+      "recordCount": 22503,
+      "mapFeatureCount": 22503,
+      "counts": {
+        "claim": 7460,
+        "exploration": 14903,
+        "operation": 140
+      },
+      "recordedHolderCount": 4440,
+      "territoryCount": 9,
+      "miningDataset": "/data/saskatchewan-mining.json",
+      "territoryDataset": "/data/saskatchewan-territories.json",
+      "claimDelivery": "included"
+    },
+    {
+      "key": "ontario",
+      "name": "Ontario",
+      "abbreviation": "ON",
+      "generatedAt": "2026-07-31T05:41:46.077008+00:00",
+      "recordCount": 399585,
+      "mapFeatureCount": 4707,
+      "counts": {
+        "claim": 394878,
+        "exploration": 676,
+        "operation": 4031
+      },
+      "recordedHolderCount": 1676,
+      "territoryCount": 7,
+      "miningDataset": "/data/ontario-mining.json",
+      "territoryDataset": "/data/ontario-territories.json",
+      "claimDelivery": "viewport-live"
+    }
+  ]
+}

@@ -36,11 +36,18 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+*.tsbuildinfo
 /dist/
 /.wrangler/
 /outputs/
 /work/
 scripts/manitoba-mining/vendor/
 scripts/manitoba-mining/__pycache__/
+scripts/canada-mining/vendor/
+scripts/canada-mining/__pycache__/
 data/manitoba-mining/raw/
 data/manitoba-mining/processed/
+data/saskatchewan-mining/raw/
+data/saskatchewan-mining/processed/
+data/ontario-mining/raw/
+data/ontario-mining/processed/
