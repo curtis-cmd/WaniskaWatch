@@ -33,3 +33,35 @@ body { font-family:var(--font-geist-sans), Arial, sans-serif; }
 button, input, select { font:inherit; }
 button { cursor:pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline:3px solid rgba(36,92,90,.25); outline-offset:2px; }
+
+/* Multi-sector map and official treaty boundary refinements */
+.mining-territory-strip button>i{width:8px;height:8px;border-radius:50%;background:var(--territory);flex:0 0 auto}
+.mining-territory-strip button.active{background:var(--territory);border-color:var(--territory);color:#fff}
+.mining-territory-strip button.active>i{background:#fff}
+.mining-territory-strip button.active small{color:#fff}
+.mining-workspace{height:min(820px,calc(100vh - 65px));min-height:700px;grid-template-columns:320px minmax(0,1fr)}
+.mining-layer-list+.mining-layer-list{border-top:0}
+.mining-layer-list label{padding-top:9px}
+.mining-layer-list i{flex:0 0 auto}
+.mining-sub-layer-list{background:#f7faf8;padding-left:26px}
+.mining-map-badge small{display:block;color:#7a8b87;font-size:7px;margin-top:4px}
+.mining-detail{width:min(380px,calc(100% - 30px))}
+.mining-detail-description{color:#60726d;font-size:9px;line-height:1.55;margin:0 0 14px}
+.mining-contact-card{margin-top:14px;padding:12px;border:1px solid #dce5e0;background:#f5f9f7;border-radius:7px}
+.mining-contact-card>span{display:block;font-size:6px;font-weight:800;letter-spacing:.13em;color:#788985}
+.mining-contact-card>strong{display:block;font-size:10px;margin:6px 0 9px}
+.mining-contact-card>div{display:flex;flex-wrap:wrap;gap:8px}
+.mining-contact-card a{color:#356c63;text-decoration:none;font-size:8px;font-weight:700}
+.mining-contact-card>small{display:block;color:#81908c;font-size:7px;line-height:1.45;margin-top:8px}
+.mining-method-meta{gap:16px}
+.mining-method-meta>div{display:flex;gap:16px;flex-wrap:wrap;justify-content:flex-end}
+
+@media(max-width:900px){
+  .mining-workspace{height:auto;min-height:0;grid-template-columns:1fr}
+  .mining-controls{max-height:560px}
+}
+@media(max-width:560px){
+  .mining-government-link:after{content:"Sources ↓"}
+  .mining-method-meta>div{justify-content:flex-start}
+  .mining-detail{max-height:76%}
+}

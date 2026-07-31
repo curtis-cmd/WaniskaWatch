@@ -14,17 +14,17 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Waniskâ Watch — Treaty Territory Mining Intelligence",
+    title: "Waniskâ Watch — Treaty Territory Environmental Intelligence",
     description:
-      "Community-first intelligence on Manitoba mining claims, exploration licences, mineral leases, mine sites, and recorded holders.",
+      "Community-first intelligence on public projects and environmental activity across Manitoba treaty territories.",
     openGraph: {
       title: "Waniskâ Watch",
-      description: "Mining intelligence by treaty territory.",
+      description: "Environmental and industrial intelligence by treaty territory.",
     },
     twitter: {
       card: "summary",
       title: "Waniskâ Watch",
-      description: "Mining intelligence by treaty territory.",
+      description: "Environmental and industrial intelligence by treaty territory.",
     },
   };
 }

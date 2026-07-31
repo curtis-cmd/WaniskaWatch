@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "updatedAt": "2026-07-30",
+    "note": "Only publicly listed business or project contacts are included. Private personal contact details are not published."
+  },
+  "contacts": [
+    {
+      "match": "Hudbay Minerals",
+      "name": "Hudbay Minerals — Capital Markets & Corporate Affairs",
+      "email": "investor.relations@hudbay.com",
+      "phone": "416-362-8181",
+      "website": "https://hudbay.com/contact-us/default.aspx",
+      "source": "https://hudbay.com/news-media/default.aspx"
+    },
+    {
+      "match": "1911 Gold",
+      "name": "1911 Gold Corporation — Investor Relations",
+      "email": "ir@1911gold.com",
+      "phone": "604-900-5620",
+      "website": "https://1911gold.com/contact/details/",
+      "source": "https://1911gold.com/contact/details/"
+    },
+    {
+      "match": "Alamos Gold",
+      "name": "Alamos Gold — Main Office",
+      "email": "info@alamosgold.com",
+      "phone": "416-368-9932",
+      "website": "https://www.alamosgold.com/contact/default.aspx",
+      "source": "https://www.alamosgold.com/contact/default.aspx"
+    },
+    {
+      "match": "Grid Metals",
+      "name": "Grid Metals Corp. — Head Office",
+      "email": "info@gridmetalscorp.com",
+      "phone": "416-955-4773",
+      "website": "https://gridmetalscorp.com/contact/contact-us/",
+      "source": "https://gridmetalscorp.com/contact/contact-us/"
+    }
+  ]
+}

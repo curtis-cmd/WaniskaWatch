@@ -29,12 +29,13 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Waniskâ Watch — Treaty Territory Mining Intelligence<\/title>/i);
+  assert.match(html, /<title>Waniskâ Watch — Treaty Territory Environmental Intelligence<\/title>/i);
   assert.match(html, /waniska-watch-logo\.png/i);
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A PRODUCT OF/i);
   assert.match(html, /https:\/\/waniskaservices\.ca\//i);
-  assert.match(html, /See what mineral activity is happening in your treaty territory\./i);
+  assert.match(html, /See the projects and pressures shaping your treaty territory\./i);
+  assert.match(html, /SECTOR LENSES/i);
   assert.doesNotMatch(html, /Minerals Watch/i);
 });
 
@@ -50,4 +51,13 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
   assert.match(portal, /A PRODUCT OF/);
   assert.match(layout, /Waniskâ Watch/);
   assert.match(packageJson, /"name": "waniska-watch"/);
+});
+
+test("wires official treaty, sector, and public-contact data into the portal", async () => {
+  const portal = await readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8");
+
+  assert.match(portal, /\/data\/manitoba-treaties\.json/);
+  assert.match(portal, /\/data\/manitoba-sectors\.json/);
+  assert.match(portal, /\/data\/proponent-contacts\.json/);
+  assert.match(portal, /does not publish private personal contact information/i);
 });
