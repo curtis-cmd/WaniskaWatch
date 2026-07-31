@@ -78,8 +78,11 @@ const kindMeta: Record<string, { label: string; short: string; color: string }> 
   mine: { label: "Mine sites", short: "Mine sites", color: "#c6543d" },
 };
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const appPath = (path: string) => `${basePath}${path}`;
+
 function WatchLogo() {
-  return <img className="watch-logo" src="/waniska-watch-logo.png" alt="Waniskâ Watch" />;
+  return <img className="watch-logo" src={appPath("/waniska-watch-logo.png")} alt="Waniskâ Watch" />;
 }
 
 function readableStatus(status: string | null) {
@@ -108,9 +111,9 @@ export default function MiningPortal() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/data/manitoba-mining.json").then(response => response.json()),
-      fetch("/data/manitoba-treaties.json").then(response => response.json()),
-      fetch("/data/proponent-contacts.json").then(response => response.json()),
+      fetch(appPath("/data/manitoba-mining.json")).then(response => response.json()),
+      fetch(appPath("/data/manitoba-treaties.json")).then(response => response.json()),
+      fetch(appPath("/data/proponent-contacts.json")).then(response => response.json()),
     ]).then(([mining, treaties, directory]) => {
       setMiningDataset(mining);
       setTreatyDataset(treaties);
@@ -292,7 +295,7 @@ export default function MiningPortal() {
 
   return <main className="mining-portal">
     <header className="mining-header">
-      <a className="mining-brand" href="/"><WatchLogo /></a>
+      <a className="mining-brand" href={appPath("/")}><WatchLogo /></a>
       <nav aria-label="Waniskâ Watch navigation"><a href="#map">Map</a><a href="#records">Records</a><a href="#method">About the data</a></nav>
       <a className="mining-government-link" href="#method">Public data sources ↓</a>
     </header>
@@ -395,8 +398,8 @@ export default function MiningPortal() {
     </section>
 
     <footer className="mining-footer">
-      <div className="mining-footer-primary"><a className="mining-brand" href="/"><WatchLogo /></a><p>Treaty-territory mining intelligence for informed decisions.</p></div>
-      <a className="mining-product-of" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer"><span>A PRODUCT OF</span><img src="/waniska-services-logo.png" alt="Waniskâ Services" /></a>
+      <div className="mining-footer-primary"><a className="mining-brand" href={appPath("/")}><WatchLogo /></a><p>Treaty-territory mining intelligence for informed decisions.</p></div>
+      <a className="mining-product-of" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer"><span>A PRODUCT OF</span><img src={appPath("/waniska-services-logo.png")} alt="Waniskâ Services" /></a>
       <span className="mining-footer-source">Government data · Independent presentation</span>
     </footer>
   </main>;

@@ -11,10 +11,11 @@ data.
 - Vercel team: `Waniskâ`
 - Vercel project: `waniska-watch` (separate project)
 - Neon project: `Waniskâ Watch` (`red-moon-35868453`; separate project and database)
-- Preferred product domain: `waniskawatch.ca`
+- Preferred public route: `app.waniskaservices.ca/watch`
 
-The public domain can link back to the Waniskâ Services website while the
-application remains operationally independent.
+The Waniskâ Services application owns `app.waniskaservices.ca` and forwards
+`/watch` to this separate deployment. The Watch codebase, project, database,
+and operational access remain independent.
 
 ## Credential and data rules
 
