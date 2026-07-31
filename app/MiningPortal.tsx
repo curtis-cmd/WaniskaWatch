@@ -43,7 +43,7 @@ const kindMeta: Record<MiningKind, { label: string; short: string; color: string
 };
 
 function WatchLogo() {
-  return <span className="watch-logo-frame"><img src="/waniska-watch-logo.png" alt="Waniskâ Watch" /></span>;
+  return <img className="watch-logo" src="/waniska-watch-logo.png" alt="Waniskâ Watch" />;
 }
 
 function readableStatus(status: string | null) {
@@ -198,7 +198,7 @@ export default function MiningPortal() {
 
   return <main className="mining-portal">
     <header className="mining-header">
-      <a className="mining-brand" href="/"><WatchLogo /><span><strong>Waniskâ</strong><small>WATCH</small></span></a>
+      <a className="mining-brand" href="/"><WatchLogo /></a>
       <nav aria-label="Mining portal navigation"><a href="#map">Map</a><a href="#records">Records</a><a href="#method">About the data</a></nav>
       <a className="mining-government-link" href="https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf" target="_blank" rel="noreferrer">Open Manitoba iMaQs ↗</a>
     </header>
@@ -277,7 +277,7 @@ export default function MiningPortal() {
 
     <footer className="mining-footer">
       <div className="mining-footer-primary">
-        <a className="mining-brand" href="/"><WatchLogo /><span><strong>Waniskâ</strong><small>WATCH</small></span></a>
+        <a className="mining-brand" href="/"><WatchLogo /></a>
         <p>Community-first mineral intelligence for informed decisions.</p>
       </div>
       <a className="mining-product-of" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
