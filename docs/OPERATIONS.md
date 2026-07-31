@@ -7,11 +7,11 @@ data.
 
 ## Target production resources
 
-- GitHub repository: `curtis-cmd/waniska-watch` (separate repository)
+- GitHub repository: `curtis-cmd/WaniskaWatch` (separate repository)
 - Vercel team: `Waniskâ`
 - Vercel project: `waniska-watch` (separate project)
-- Neon project: `waniska-watch-prod` (separate project and database)
-- Preferred product domain: `watch.waniskaservices.ca`
+- Neon project: `Waniskâ Watch` (`red-moon-35868453`; separate project and database)
+- Preferred product domain: `waniskawatch.ca`
 
 The public domain can link back to the Waniskâ Services website while the
 application remains operationally independent.
