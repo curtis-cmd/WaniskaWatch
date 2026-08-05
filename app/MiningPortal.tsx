@@ -600,11 +600,13 @@ export default function MiningPortal() {
       if (territory !== allTerritoriesLabel && feature.properties.treaty !== territory) return;
       counts[feature.properties.kind]++;
     });
-    if (territory === allTerritoriesLabel && miningDataset && miningDataset.metadata.claimDelivery !== "included") {
+    if (territory === allTerritoriesLabel && claimOverview) {
+      counts.claim = claimOverview.metadata.claimCount;
+    } else if (territory === allTerritoriesLabel && miningDataset && miningDataset.metadata.claimDelivery !== "included") {
       counts.claim = miningDataset.metadata.counts?.claim ?? counts.claim;
     }
     return counts;
-  }, [activities, allTerritoriesLabel, miningDataset, territory]);
+  }, [activities, allTerritoriesLabel, claimOverview, miningDataset, territory]);
 
   const selectTerritory = useCallback((nextTerritory: string) => {
     setTerritory(nextTerritory);
