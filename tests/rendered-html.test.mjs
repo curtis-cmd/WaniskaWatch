@@ -35,7 +35,8 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A free community resource from/i);
   assert.match(html, /https:\/\/waniskaservices\.ca\//i);
-  assert.match(html, /Start with a place/i);
+  assert.match(html, /Know what’s happening/i);
+  assert.match(html, /Explore the map/i);
   assert.match(html, /TERRITORY WATCH/i);
   assert.match(html, /Mining activity/i);
   assert.match(html, /A claim is not consent/i);
@@ -57,7 +58,7 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
     readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/og.png", import.meta.url)),
+    readFile(new URL("../public/og-territory-watch-v2.png", import.meta.url)),
     readFile(new URL("../public/waniska-watch-header.png", import.meta.url)),
     readFile(new URL("../public/waniska-watch-footer.png", import.meta.url)),
   ]);
@@ -70,9 +71,9 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
   assert.match(portal, /mailto:info@waniskaservices\.ca/);
   assert.doesNotMatch(portal, /306-203-6830|tel:\+13062036830/);
   assert.match(layout, /Waniskâ Watch/);
-  assert.match(layout, /https:\/\/app\.waniskaservices\.ca\/watch\/og\.png/);
+  assert.match(layout, /https:\/\/app\.waniskaservices\.ca\/watch\/og-territory-watch-v2\.png/);
   assert.match(layout, /summary_large_image/);
-  assert.match(layout, /See the activity\. Know the territory\./);
+  assert.match(layout, /Know what’s happening on the land\./);
   assert.match(packageJson, /"name": "waniska-watch"/);
   assert.equal(socialCard.subarray(1, 4).toString("ascii"), "PNG");
   assert.equal(socialCard.readUInt32BE(16), 1200);

@@ -1015,6 +1015,10 @@ export default function MiningPortal() {
   const updated = formatDate(generatedAt, "Loading");
   const boundaryUpdated = formatDate(treatyDataset?.metadata.generatedAt, "Not available");
   const selectedTerritoryMeta = territoryMeta.get(territory);
+  const usesViewportClaims = ["ontario", "yukon", "nunavut", "british-columbia", "quebec"].includes(province);
+  const isWaitingForViewportClaims = usesViewportClaims
+    && !filtered.length
+    && Boolean(claimViewportNote?.startsWith("Zoom in"));
 
   return <main className="territory-watch-portal" id="top">
     <a className="skip-link" href="#territory-watch">Skip to Territory Watch map</a>
@@ -1031,12 +1035,12 @@ export default function MiningPortal() {
 
     <section className="watch-hero">
       <div className="watch-hero-copy">
-        <span className="watch-eyebrow">WANISKÂ WATCH · TERRITORY WATCH</span>
-        <h1>Start with a place.<br />See what is happening around it.</h1>
-        <p>Explore public mining claims, exploration licences, mineral leases and mine sites alongside published territorial context—without treating a mapped boundary as the final word.</p>
+        <span className="watch-eyebrow">PUBLIC MINING ACTIVITY · TERRITORIAL CONTEXT</span>
+        <h1>Know what’s happening<br />on the land.</h1>
+        <p>Explore current mining claims, projects and operations by province, territory, treaty area, company or claim—using public records mapped with care.</p>
         <div className="watch-hero-actions">
-          <button type="button" className="watch-primary-button" onClick={beginTerritoryWatch}>Open Territory Watch</button>
-          <a href="#trust">Read before using the map</a>
+          <button type="button" className="watch-primary-button" onClick={beginTerritoryWatch}>Explore the map</button>
+          <a href="#trust">How to use this information</a>
         </div>
       </div>
 
@@ -1092,7 +1096,7 @@ export default function MiningPortal() {
 
     <section className="watch-snapshot" aria-label="Current data coverage">
       <div><span>CURRENT PUBLIC DATA</span><strong>{updated}</strong></div>
-      <div><span>VISIBLE RECORDS</span><strong>{filtered.length.toLocaleString("en-CA")}</strong></div>
+      <div><span>{isWaitingForViewportClaims ? "MAP RECORDS" : "VISIBLE RECORDS"}</span><strong>{isWaitingForViewportClaims ? "Zoom in" : filtered.length.toLocaleString("en-CA")}</strong></div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
       <p><i /> Current activity only · no account required</p>
@@ -1118,7 +1122,7 @@ export default function MiningPortal() {
       <div className="territory-watch-workspace">
         <aside className="territory-watch-controls" aria-label="Map filters and accessible record list">
           <div className="watch-filter-section">
-            <div className="watch-section-label"><span>FILTER CURRENT ACTIVITY</span><b aria-live="polite">{filtered.length.toLocaleString("en-CA")}</b></div>
+            <div className="watch-section-label"><span>FILTER CURRENT ACTIVITY</span><b aria-live="polite">{isWaitingForViewportClaims ? "Zoom in" : filtered.length.toLocaleString("en-CA")}</b></div>
             <label className="watch-map-search">
               <span>Search public mining records</span>
               <div>
@@ -1178,7 +1182,8 @@ export default function MiningPortal() {
             <div className="watch-section-label"><span>ACCESSIBLE RECORD LIST</span><small>Select to locate</small></div>
             {dataStatus === "loading" && <p className="watch-state-message" role="status">Loading public records…</p>}
             {dataStatus === "error" && <p className="watch-state-message error" role="alert">The public datasets could not be loaded. Please try again or use the official source links below.</p>}
-            {dataStatus === "ready" && !filtered.length && <p className="watch-state-message" role="status">No records match this view.</p>}
+            {dataStatus === "ready" && isWaitingForViewportClaims && <p className="watch-state-message" role="status">{claimViewportNote}</p>}
+            {dataStatus === "ready" && !filtered.length && !isWaitingForViewportClaims && <p className="watch-state-message" role="status">No records match this view.</p>}
             {listedRecords.map(feature => <button
               key={String(feature.id || `${feature.properties.kind}:${feature.properties.id}`)}
               type="button"
@@ -1210,7 +1215,7 @@ export default function MiningPortal() {
             <small>Hover or tap a claim to identify it. Select for full details.</small>
           </div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
-          {(province === "ontario" || province === "yukon" || province === "nunavut") && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
+          {usesViewportClaims && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
 
           {selected && <article className="watch-record-detail" aria-labelledby="record-title">
             <div className="watch-record-detail-head">
