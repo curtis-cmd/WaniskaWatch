@@ -81,7 +81,7 @@ def write_claim_overview(
     strict_expiry: bool,
 ) -> str:
     """Create a small current-claim density layer for province-scale navigation."""
-    grid_degrees = 0.5
+    grid_degrees = 1.0
     cells: dict[tuple[int, int], dict[str, float | int]] = {}
     as_of_date = generated_at[:10]
     rows = db.execute(

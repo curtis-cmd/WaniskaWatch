@@ -600,7 +600,7 @@ export default function MiningPortal() {
       if (territory !== allTerritoriesLabel && feature.properties.treaty !== territory) return;
       counts[feature.properties.kind]++;
     });
-    if (territory === allTerritoriesLabel && miningDataset?.metadata.claimDelivery === "viewport-live") {
+    if (territory === allTerritoriesLabel && miningDataset && miningDataset.metadata.claimDelivery !== "included") {
       counts.claim = miningDataset.metadata.counts?.claim ?? counts.claim;
     }
     return counts;
@@ -913,7 +913,7 @@ export default function MiningPortal() {
         pointToLayer: (feature, latlng) => {
           const count = Number((feature.properties as ClaimOverviewProperties).count || 0);
           return L.circleMarker(latlng, {
-            radius: Math.min(24, 6 + Math.log10(count + 1) * 4.2),
+            radius: Math.min(14, 4 + Math.log10(count + 1) * 2.2),
             color: "#fffefa",
             weight: 2,
             fillColor: kindMeta.claim.color,
