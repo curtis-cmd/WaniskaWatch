@@ -4,7 +4,7 @@ A Waniskâ Services product for community-first mining intelligence by treaty
 territory.
 
 The platform maps current public mining claims, exploration licences, mineral
-leases and mine sites across nine Canadian jurisdictions. Province- and
+leases and mine sites across twelve Canadian jurisdictions. Province- and
 territory-specific pipelines preserve government-source evidence, map records
 against the appropriate published treaty or agreement context, and retain
 published holder names. Private personal contact information is not published.

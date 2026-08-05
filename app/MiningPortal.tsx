@@ -16,7 +16,10 @@ type ProvinceKey =
   | "nova-scotia"
   | "newfoundland-and-labrador"
   | "yukon"
-  | "nunavut";
+  | "nunavut"
+  | "british-columbia"
+  | "northwest-territories"
+  | "quebec";
 type ContactInfo = {
   name: string;
   email?: string;
@@ -61,7 +64,7 @@ type ActivityDataset = FeatureCollection<Geometry, ActivityProperties> & {
     counts?: Partial<Record<"claim" | "exploration" | "operation", number>>;
     recordedHolderCount?: number;
     treatyCounts?: Record<string, number>;
-    claimDelivery?: "included" | "viewport-live";
+    claimDelivery?: "included" | "viewport-live" | "viewport-static";
     locationNote?: string;
   };
 };
@@ -174,6 +177,27 @@ const provinces: Record<ProvinceKey, {
     center: [67.1, -92.2],
     zoom: 4,
   },
+  "british-columbia": {
+    name: "British Columbia",
+    miningPath: "/data/british-columbia-mining.json",
+    territoryPath: "/data/british-columbia-territories.json",
+    center: [54.3, -125.2],
+    zoom: 5,
+  },
+  "northwest-territories": {
+    name: "Northwest Territories",
+    miningPath: "/data/northwest-territories-mining.json",
+    territoryPath: "/data/northwest-territories-territories.json",
+    center: [64.8, -119.6],
+    zoom: 4,
+  },
+  quebec: {
+    name: "Quebec",
+    miningPath: "/data/quebec-mining.json",
+    territoryPath: "/data/quebec-territories.json",
+    center: [52.2, -71.7],
+    zoom: 5,
+  },
 };
 
 function WatchLogo({ variant = "black" }: { variant?: "black" | "white" }) {
@@ -193,12 +217,13 @@ const inactiveStatusMarkers = [
   "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
   "expired", "forfeited", "non operational", "orphaned", "past producing",
   "past-producing", "refused", "rejected", "remediated", "surrendered", "terminated", "withdrawn",
+  "pending", "application",
 ];
 
 const currentStatusMarkers = [
   "active", "appl exemp", "appl exten", "appl lease", "appl rff",
-  "good stand", "hold", "operational", "pending", "producing mine",
-  "reactivat", "reinstat", "renew",
+  "good stand", "hold", "operational", "producer", "producing mine",
+  "reactivat", "reinstat",
 ];
 
 function normalizedStatus(status: string | null | undefined) {
@@ -311,6 +336,36 @@ function geometryCentre(geometry: Geometry): [number, number] {
   const longitude = points.reduce((sum, point) => sum + point[0], 0) / points.length;
   const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
   return [longitude, latitude];
+}
+
+function geometryExtent(geometry: Geometry): [number, number, number, number] {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  const visit = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
+      west = Math.min(west, value[0]);
+      south = Math.min(south, value[1]);
+      east = Math.max(east, value[0]);
+      north = Math.max(north, value[1]);
+      return;
+    }
+    value.forEach(visit);
+  };
+  if (geometry.type === "GeometryCollection") {
+    geometry.geometries.forEach(item => {
+      const extent = geometryExtent(item);
+      west = Math.min(west, extent[0]);
+      south = Math.min(south, extent[1]);
+      east = Math.max(east, extent[2]);
+      north = Math.max(north, extent[3]);
+    });
+  } else {
+    visit(geometry.coordinates);
+  }
+  return [west, south, east, north];
 }
 
 function pointInRing(longitude: number, latitude: number, ring: number[][]) {
@@ -631,7 +686,9 @@ export default function MiningPortal() {
 
   useEffect(() => {
     const map = mapInstance.current;
-    const viewportClaimProvince = province === "ontario" || province === "yukon" || province === "nunavut";
+    const viewportClaimProvince = [
+      "ontario", "yukon", "nunavut", "british-columbia", "quebec",
+    ].includes(province);
     if (!mapReady || !map || !viewportClaimProvince || !treatyDataset) {
       setLiveClaims([]);
       return;
@@ -640,7 +697,11 @@ export default function MiningPortal() {
     let controller: AbortController | null = null;
     const loadClaims = async () => {
       const zoom = map.getZoom();
-      const minimumZoom = province === "ontario" ? 9 : province === "yukon" ? 8 : 7;
+      const minimumZoom = province === "ontario"
+        ? 9
+        : province === "nunavut"
+          ? 7
+          : 8;
       const provinceName = provinces[province].name;
       if (zoom < minimumZoom) {
         controller?.abort();
@@ -660,11 +721,56 @@ export default function MiningPortal() {
       });
       setClaimViewportNote(`Loading ${provinceName} claims in this map view…`);
       try {
-        const response = await fetch(appPath(`/api/claims/${province}?${params}`), {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("Claim service unavailable");
-        const payload = await response.json();
+        let payload: {
+          features?: Array<Feature<Geometry, Record<string, string | number | null>>>;
+          metadata?: { count?: number; truncated?: boolean; source?: string; sourceUrl?: string };
+        };
+        if (province === "quebec") {
+          const indexResponse = await fetch(appPath("/data/quebec-claims/index.json"), {
+            signal: controller.signal,
+          });
+          if (!indexResponse.ok) throw new Error("Quebec claim index unavailable");
+          const index = await indexResponse.json();
+          const matchingTiles = (index.tiles || []).filter((tile: { bounds: number[] }) => (
+            tile.bounds[0] <= bounds.getEast()
+            && tile.bounds[2] >= bounds.getWest()
+            && tile.bounds[1] <= bounds.getNorth()
+            && tile.bounds[3] >= bounds.getSouth()
+          ));
+          const tileResponses = await Promise.all(matchingTiles.map(async (tile: { file: string }) => {
+            const response = await fetch(appPath(tile.file), { signal: controller?.signal });
+            if (!response.ok) throw new Error("Quebec claim tile unavailable");
+            return response.json();
+          }));
+          const unique = new Map<string, Feature<Geometry, Record<string, string | number | null>>>();
+          tileResponses.flatMap(item => item.features || []).forEach((feature: Feature<Geometry, Record<string, string | number | null>>) => {
+            const extent = geometryExtent(feature.geometry);
+            if (
+              extent[0] <= bounds.getEast()
+              && extent[2] >= bounds.getWest()
+              && extent[1] <= bounds.getNorth()
+              && extent[3] >= bounds.getSouth()
+            ) {
+              unique.set(String(feature.properties?.TIT_NO || feature.id), feature);
+            }
+          });
+          const matching = [...unique.values()];
+          payload = {
+            features: matching.slice(0, 2000),
+            metadata: {
+              count: matching.length,
+              truncated: matching.length > 2000,
+              source: index.metadata?.source,
+              sourceUrl: index.metadata?.sourceUrl,
+            },
+          };
+        } else {
+          const response = await fetch(appPath(`/api/claims/${province}?${params}`), {
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("Claim service unavailable");
+          payload = await response.json();
+        }
         if (!active) return;
         const claims: ActivityFeature[] = (payload.features || []).map((
           feature: Feature<Geometry, Record<string, string | number | null>>,
@@ -679,14 +785,16 @@ export default function MiningPortal() {
             if (typeof value === "number") return new Date(value).toISOString().slice(0, 10);
             return String(value);
           };
-          const isYukon = province === "yukon";
           const id = String(
-            properties.TENURE_NUMBER_ID || properties.GRANT_NUMBER || properties.CLAIM_NUM || properties.OBJECTID,
+            properties.TENURE_NUMBER_ID || properties.GRANT_NUMBER || properties.CLAIM_NUM
+            || properties.TIT_NO || properties.OBJECTID,
           );
           const holder = properties.HOLDER || properties.OWNER_NAME || properties.OWNERS;
-          const status = properties.TENURE_STATUS_DESC || properties.TENURE_STATUS || properties.CLAIM_STAT;
+          const status = properties.TENURE_STATUS_DESC || properties.TENURE_STATUS
+            || properties.CLAIM_STAT || properties.STATUS;
           const issueDate = properties.ISSUE_DATE || properties.RECORDED_DATE;
-          const expiryDate = properties.CLAIM_DUE_DATE || properties.EXPIRY_DATE || properties.CANCEL_DT;
+          const expiryDate = properties.CLAIM_DUE_DATE || properties.EXPIRY_DATE
+            || properties.GOOD_TO_DATE || properties.CANCEL_DT;
           return {
             type: "Feature",
             id: `${province}:claim:${properties.OBJECTID}`,
@@ -695,14 +803,14 @@ export default function MiningPortal() {
               id,
               name: properties.CLAIM_NAME ? String(properties.CLAIM_NAME) : id,
               kind: "claim",
-              kindLabel: isYukon
-                ? String(properties._WANISKA_CLAIM_TYPE || "Mining claim")
-                : "Mining claim",
+              kindLabel: String(properties._WANISKA_CLAIM_TYPE || properties.TITLE_TYPE || "Mining claim"),
               sector: "minerals",
               sectorLabel: "Minerals",
               status: status ? String(status) : null,
               treaty: treatyMatch?.properties.name || "Unassigned",
-              areaHa: properties.AREA_HA == null ? null : Number(properties.AREA_HA),
+              areaHa: properties.AREA_HA == null
+                ? properties.AREA_IN_HECTARES == null ? null : Number(properties.AREA_IN_HECTARES)
+                : Number(properties.AREA_HA),
               commodity: null,
               holder: holder ? String(holder) : null,
               holderEvidence: holder ? `Published ${provinceName} government holder field` : null,
@@ -710,7 +818,9 @@ export default function MiningPortal() {
               expiryDate: dateValue(expiryDate),
               longitude,
               latitude,
-              location: properties.DISTRICT ? String(properties.DISTRICT) : null,
+              location: properties.DISTRICT || properties.LOCATION
+                ? String(properties.DISTRICT || properties.LOCATION)
+                : null,
               sourceUrl: payload.metadata?.sourceUrl,
               sourceName: payload.metadata?.source,
               lastUpdated: miningDataset?.metadata.generatedAt || null,
@@ -946,11 +1056,6 @@ export default function MiningPortal() {
             {Object.entries(provinces).sort(([, left], [, right]) => left.name.localeCompare(right.name)).map(([key, item]) => (
               <option key={key} value={key}>{item.name}</option>
             ))}
-            <optgroup label="Verified source integration in progress">
-              <option disabled>British Columbia</option>
-              <option disabled>Quebec</option>
-              <option disabled>Northwest Territories</option>
-            </optgroup>
             <optgroup label="Coverage confirmation required">
               <option disabled>Prince Edward Island</option>
             </optgroup>
@@ -981,7 +1086,7 @@ export default function MiningPortal() {
             <button type="button" onClick={beginTerritoryWatch}>Search</button>
           </div>
         </div>
-        <p className="watch-future-entry"><b>Canada expansion:</b> nine jurisdictions now use verified government-source pipelines. British Columbia, Quebec and Northwest Territories remain labelled as in progress until their non-ArcGIS source files pass the same record-level checks.</p>
+        <p className="watch-future-entry"><b>Canada expansion:</b> twelve jurisdictions now use verified government-source pipelines. Prince Edward Island remains pending until the province confirms its current mineral-right records and official map coverage.</p>
       </div>
     </section>
 

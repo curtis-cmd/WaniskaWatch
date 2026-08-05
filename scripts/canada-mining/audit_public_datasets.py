@@ -14,29 +14,11 @@ from config import PROVINCES
 
 INACTIVE = re.compile(
     r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
-    r"non operational|orphaned|past producing|refused|rejected|remediated|surrendered|terminated|withdrawn",
+    r"non operational|orphaned|past producing|pending|application|refused|rejected|remediated|surrendered|terminated|withdrawn",
     re.IGNORECASE,
 )
 
 PENDING_SOURCES = [
-    {
-        "jurisdiction": "British Columbia",
-        "status": "source-normalization-in-progress",
-        "sourceUrl": "https://catalogue.data.gov.bc.ca/dataset/923c5330-c798-4276-82c1-705000c5caac",
-        "note": "The current WFS publishes ownership as multiple rows per tenure; owner relationships must be normalized before public release.",
-    },
-    {
-        "jurisdiction": "Quebec",
-        "status": "source-normalization-in-progress",
-        "sourceUrl": "https://documents-gestim.mines.gouv.qc.ca/cartes",
-        "note": "The weekly GESTIM active-title shapefile is verified; a reproducible shapefile import and bilingual field mapping remain required.",
-    },
-    {
-        "jurisdiction": "Northwest Territories",
-        "status": "official-package-incomplete",
-        "sourceUrl": "https://www.geomatics.gov.nt.ca/en/mineral-claims",
-        "note": "The official ZIP retrieved during this audit contained metadata XML files but no claim geometry, so it was not presented as complete coverage.",
-    },
     {
         "jurisdiction": "Prince Edward Island",
         "status": "coverage-confirmation-required",
@@ -86,6 +68,14 @@ def main() -> None:
         )
         if inactive_count:
             issues.append(f"{inactive_count} clearly inactive bundled records")
+        expired_count = sum(
+            1 for feature in features
+            if key in {"british-columbia", "quebec", "northwest-territories"}
+            and str((feature.get("properties") or {}).get("expiryDate") or "")[:10]
+            and str((feature.get("properties") or {}).get("expiryDate"))[:10] < audited_at.date().isoformat()
+        )
+        if expired_count:
+            issues.append(f"{expired_count} bundled records are past their published expiry date")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
         if age_hours > 48:

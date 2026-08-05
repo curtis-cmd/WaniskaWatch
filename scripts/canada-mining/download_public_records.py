@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from config import PROVINCES, STATCAN_PROVINCES, Layer
+from custom_sources import download_custom
 
 OUT_SR = "3347"
 PAGE_SIZE = int(os.environ.get("WANISKA_ARCGIS_PAGE_SIZE", "1000"))
@@ -234,10 +235,15 @@ def main() -> None:
             raise RuntimeError("--boundaries-only requires an existing download manifest")
         manifest["layers"] = previous_manifest["layers"]
     else:
-        for layer in config["layers"]:
-            result = download_layer(layer, raw_dir)
-            manifest["layers"].append(result)
-            print(f"{result['slug']}: {result['records']:,} records")
+        if config.get("custom_download"):
+            manifest["layers"] = download_custom(config, raw_dir, retrieved_at[:10])
+            for result in manifest["layers"]:
+                print(f"{result['slug']}: {result['records']:,} normalized current records")
+        else:
+            for layer in config["layers"]:
+                result = download_layer(layer, raw_dir)
+                manifest["layers"].append(result)
+                print(f"{result['slug']}: {result['records']:,} records")
 
     if args.mining_only:
         if not previous_manifest:

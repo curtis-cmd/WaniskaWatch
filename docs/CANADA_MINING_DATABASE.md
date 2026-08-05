@@ -16,20 +16,26 @@ As of August 5, 2026, verified pipelines are live for:
 - Nova Scotia;
 - Newfoundland and Labrador;
 - Yukon; and
-- Nunavut.
+- Nunavut;
+- British Columbia;
+- Northwest Territories; and
+- Quebec.
 
 | Jurisdiction | Current records | Delivery |
 | --- | ---: | --- |
-| Manitoba | 10,196 | Bundled |
+| Manitoba | 10,112 | Bundled |
+| British Columbia | 38,891 | Claims by viewport; leases/licences bundled |
 | Alberta | 90 | Bundled |
 | New Brunswick | 1,412 | Bundled |
-| Nova Scotia | 2,129 | Bundled |
-| Newfoundland and Labrador | 4,483 | Bundled |
-| Yukon | 202,140 | Claims by viewport; leases bundled |
-| Nunavut | 5,031 | Claims by viewport; leases/licences bundled |
+| Nova Scotia | 2,073 | Bundled |
+| Newfoundland and Labrador | 4,482 | Bundled |
+| Yukon | 201,033 | Claims by viewport; leases bundled |
+| Nunavut | 5,022 | Claims by viewport; leases/licences bundled |
+| Northwest Territories | 1,955 | Bundled |
+| Quebec | 221,348 | Claims in local static map tiles; leases/concessions bundled |
 | Saskatchewan | 7,470 | Bundled |
-| Ontario | 402,858 | Claims by viewport; other records bundled |
-| **Total** | **635,809** | |
+| Ontario | 395,244 | Claims by viewport; other records bundled |
+| **Total** | **889,132** | |
 
 The generated `public/data/data-audit.json` is the authoritative count and freshness register.
 It reconciles each public dataset to canonical raw download pages and records the retrieval time,
@@ -39,10 +45,11 @@ current-only count, bundled map-feature count, holder coverage and any validatio
 
 The public view excludes records clearly published as abandoned, canceled/cancelled, closed,
 converted, expired, forfeited, refused, rejected, remediated, surrendered, terminated or
-withdrawn. Historical assessment-file footprints are not presented as current exploration.
+withdrawn or merely pending. Historical assessment-file footprints are not presented as current exploration.
 Mine inventories are included only when the source explicitly identifies an operating or
-producing mine. Active, pending, reinstated, suspended or otherwise unexpired administrative
-tenures remain visible where the source treats them as current.
+producing mine. Active, reinstated, suspended or otherwise unexpired administrative tenures remain
+visible where the source treats them as legally current. The BC, Quebec and NWT pipelines also
+apply strict published-expiry checks before public release.
 
 Raw source downloads and normalized research databases remain reproducible, while the browser
 datasets are current-only. This separation makes it possible to audit a government source without
@@ -61,6 +68,9 @@ showing historic records as present-day activity.
 | Newfoundland and Labrador | Mineral Lands Map Staked Claims | CIRNAC/ISC Modern Treaties |
 | Yukon | GeoYukon placer/quartz claims and leases | Government of Yukon Treaties and Agreements |
 | Nunavut | CIRNAC mineral claims, mining leases and coal exploration licences | CIRNAC/ISC Modern Treaties |
+| British Columbia | Mineral Titles Online / DataBC tenure spatial view | CIRNAC/ISC Historic Treaties |
+| Northwest Territories | GNWT Mineral Tenure Web Map active layers | CIRNAC/ISC Modern Treaties |
+| Quebec | GESTIM weekly active-title shapefile | CIRNAC/ISC Historic Treaties |
 
 Statistics Canada’s 2021 cartographic boundaries clip national treaty/agreement data to each
 selected province or territory.
@@ -101,23 +111,18 @@ To regenerate the browser-safe files after databases exist:
 ```bash
 python3 scripts/canada-mining/build_public_dataset.py \
   alberta new-brunswick nova-scotia newfoundland-and-labrador \
-  yukon nunavut saskatchewan ontario
+  yukon nunavut british-columbia northwest-territories quebec \
+  saskatchewan ontario
 ```
 
-Ontario, Yukon and Nunavut claim polygons are delivered from official services by map viewport
-rather than bundled into the landing page. Users must zoom to a local view; responses are capped
-and the interface asks users to zoom further when the official service returns more records than
-can be safely displayed at once.
+Ontario, Yukon, Nunavut and British Columbia claim polygons are delivered from official services
+by map viewport rather than bundled into the landing page. Quebec's weekly GESTIM shapefile is
+normalized into one-degree static map tiles. Users must zoom to a local view; responses are capped
+and the interface asks users to zoom further when more records intersect the view than can be
+safely displayed at once.
 
 ## Remaining jurisdictions
 
-- **British Columbia:** the current DataBC WFS is verified, but ownership is published as
-  multiple rows per tenure. Owner relationships must be normalized before release so claims are
-  not duplicated on the public map.
-- **Quebec:** the weekly GESTIM active-title shapefile is verified. A reproducible shapefile and
-  bilingual-field import remains in progress.
-- **Northwest Territories:** the official ZIP retrieved on August 5, 2026 contained metadata XML
-  but no claim geometry. Coverage remains withheld rather than presented as complete.
 - **Prince Edward Island:** no current public mineral-title polygon registry has been identified;
   a zero count will not be represented as verified without provincial confirmation.
 

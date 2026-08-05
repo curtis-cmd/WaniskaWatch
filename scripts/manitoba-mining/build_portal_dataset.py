@@ -31,10 +31,11 @@ INACTIVE_STATUS_MARKERS = (
     "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
     "expired", "forfeited", "non operational", "orphaned", "past producing",
     "past-producing", "rejected", "remediated", "surrendered", "terminated",
+    "pending",
 )
 CURRENT_STATUS_MARKERS = (
     "active", "appl exemp", "appl exten", "appl lease", "appl rff",
-    "good stand", "hold", "operational", "pending", "producing mine",
+    "good stand", "hold", "operational", "producing mine",
     "reactivat", "renew",
 )
 

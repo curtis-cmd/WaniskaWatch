@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "auditedAt": "2026-08-05T07:03:11.462799+00:00",
+    "auditedAt": "2026-08-05T08:01:46.858369+00:00",
     "result": "passed",
-    "liveJurisdictionCount": 9,
-    "totalCurrentRecordCount": 635809,
+    "liveJurisdictionCount": 12,
+    "totalCurrentRecordCount": 889132,
     "scope": "Current public mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts."
   },
   "liveJurisdictions": [
@@ -11,14 +11,44 @@
       "key": "manitoba",
       "jurisdiction": "Manitoba",
       "status": "passed",
-      "generatedAt": "2026-08-05T06:33:28.657627+00:00",
-      "ageHours": 0.5,
-      "currentRecordCount": 10196,
-      "bundledFeatureCount": 10196,
+      "generatedAt": "2026-08-05T08:01:41.252061+00:00",
+      "ageHours": 0.0,
+      "currentRecordCount": 10112,
+      "bundledFeatureCount": 10112,
       "claimDelivery": "included",
       "recordedHolderCount": null,
-      "normalizedRecordCount": 10196,
+      "normalizedRecordCount": 10112,
       "lineage": [],
+      "issues": []
+    },
+    {
+      "key": "british-columbia",
+      "jurisdiction": "British Columbia",
+      "status": "passed",
+      "generatedAt": "2026-08-05T07:51:24.636637+00:00",
+      "ageHours": 0.17,
+      "currentRecordCount": 38891,
+      "bundledFeatureCount": 1462,
+      "claimDelivery": "viewport-live",
+      "recordedHolderCount": 3658,
+      "normalizedRecordCount": 38891,
+      "lineage": [
+        {
+          "layer": "mineral_placer_coal_claims",
+          "manifest": 37429,
+          "canonicalRaw": 37429
+        },
+        {
+          "layer": "mineral_placer_coal_leases",
+          "manifest": 606,
+          "canonicalRaw": 606
+        },
+        {
+          "layer": "coal_licences",
+          "manifest": 856,
+          "canonicalRaw": 856
+        }
+      ],
       "issues": []
     },
     {
@@ -26,7 +56,7 @@
       "jurisdiction": "Alberta",
       "status": "passed",
       "generatedAt": "2026-08-05T06:34:39.150971+00:00",
-      "ageHours": 0.48,
+      "ageHours": 1.45,
       "currentRecordCount": 90,
       "bundledFeatureCount": 90,
       "claimDelivery": "included",
@@ -61,7 +91,7 @@
       "jurisdiction": "New Brunswick",
       "status": "passed",
       "generatedAt": "2026-08-05T06:36:48.531704+00:00",
-      "ageHours": 0.44,
+      "ageHours": 1.42,
       "currentRecordCount": 1412,
       "bundledFeatureCount": 1412,
       "claimDelivery": "included",
@@ -81,9 +111,9 @@
       "jurisdiction": "Nova Scotia",
       "status": "passed",
       "generatedAt": "2026-08-05T06:34:39.152694+00:00",
-      "ageHours": 0.48,
-      "currentRecordCount": 2129,
-      "bundledFeatureCount": 2129,
+      "ageHours": 1.45,
+      "currentRecordCount": 2073,
+      "bundledFeatureCount": 2073,
       "claimDelivery": "included",
       "recordedHolderCount": 0,
       "normalizedRecordCount": 2203,
@@ -106,9 +136,9 @@
       "jurisdiction": "Newfoundland and Labrador",
       "status": "passed",
       "generatedAt": "2026-08-05T06:49:01.888215+00:00",
-      "ageHours": 0.24,
-      "currentRecordCount": 4483,
-      "bundledFeatureCount": 4483,
+      "ageHours": 1.21,
+      "currentRecordCount": 4482,
+      "bundledFeatureCount": 4482,
       "claimDelivery": "included",
       "recordedHolderCount": 425,
       "normalizedRecordCount": 4600,
@@ -126,11 +156,11 @@
       "jurisdiction": "Yukon",
       "status": "passed",
       "generatedAt": "2026-08-05T06:39:16.666042+00:00",
-      "ageHours": 0.4,
-      "currentRecordCount": 202140,
-      "bundledFeatureCount": 2245,
+      "ageHours": 1.38,
+      "currentRecordCount": 201033,
+      "bundledFeatureCount": 2172,
       "claimDelivery": "viewport-live",
-      "recordedHolderCount": 1280,
+      "recordedHolderCount": 1203,
       "normalizedRecordCount": 205327,
       "lineage": [
         {
@@ -161,9 +191,9 @@
       "jurisdiction": "Nunavut",
       "status": "passed",
       "generatedAt": "2026-08-05T06:45:44.431962+00:00",
-      "ageHours": 0.29,
-      "currentRecordCount": 5031,
-      "bundledFeatureCount": 628,
+      "ageHours": 1.27,
+      "currentRecordCount": 5022,
+      "bundledFeatureCount": 619,
       "claimDelivery": "viewport-live",
       "recordedHolderCount": 103,
       "normalizedRecordCount": 35471,
@@ -187,11 +217,81 @@
       "issues": []
     },
     {
+      "key": "northwest-territories",
+      "jurisdiction": "Northwest Territories",
+      "status": "passed",
+      "generatedAt": "2026-08-05T07:47:13.401387+00:00",
+      "ageHours": 0.24,
+      "currentRecordCount": 1955,
+      "bundledFeatureCount": 1955,
+      "claimDelivery": "included",
+      "recordedHolderCount": 116,
+      "normalizedRecordCount": 1957,
+      "lineage": [
+        {
+          "layer": "active_mineral_claims",
+          "manifest": 935,
+          "canonicalRaw": 935
+        },
+        {
+          "layer": "active_mineral_leases",
+          "manifest": 939,
+          "canonicalRaw": 939
+        },
+        {
+          "layer": "active_prospecting_permits",
+          "manifest": 69,
+          "canonicalRaw": 69
+        },
+        {
+          "layer": "active_coal_exploration_licences",
+          "manifest": 0,
+          "canonicalRaw": 0
+        },
+        {
+          "layer": "producing_mines",
+          "manifest": 4,
+          "canonicalRaw": 4
+        },
+        {
+          "layer": "advanced_exploration_projects",
+          "manifest": 10,
+          "canonicalRaw": 10
+        }
+      ],
+      "issues": []
+    },
+    {
+      "key": "quebec",
+      "jurisdiction": "Quebec",
+      "status": "passed",
+      "generatedAt": "2026-08-05T07:53:09.470537+00:00",
+      "ageHours": 0.14,
+      "currentRecordCount": 221348,
+      "bundledFeatureCount": 507,
+      "claimDelivery": "viewport-static",
+      "recordedHolderCount": 1353,
+      "normalizedRecordCount": 221348,
+      "lineage": [
+        {
+          "layer": "active_mining_claims",
+          "manifest": 220841,
+          "canonicalRaw": 220841
+        },
+        {
+          "layer": "active_mining_leases",
+          "manifest": 507,
+          "canonicalRaw": 507
+        }
+      ],
+      "issues": []
+    },
+    {
       "key": "saskatchewan",
       "jurisdiction": "Saskatchewan",
       "status": "passed",
       "generatedAt": "2026-08-05T05:57:12.757977+00:00",
-      "ageHours": 1.1,
+      "ageHours": 2.08,
       "currentRecordCount": 7470,
       "bundledFeatureCount": 7470,
       "claimDelivery": "included",
@@ -231,11 +331,11 @@
       "jurisdiction": "Ontario",
       "status": "passed",
       "generatedAt": "2026-08-05T06:36:52.154615+00:00",
-      "ageHours": 0.44,
-      "currentRecordCount": 402858,
+      "ageHours": 1.42,
+      "currentRecordCount": 395244,
       "bundledFeatureCount": 4701,
       "claimDelivery": "viewport-live",
-      "recordedHolderCount": 1677,
+      "recordedHolderCount": 1660,
       "normalizedRecordCount": 402861,
       "lineage": [
         {
@@ -273,24 +373,6 @@
     }
   ],
   "pendingJurisdictions": [
-    {
-      "jurisdiction": "British Columbia",
-      "status": "source-normalization-in-progress",
-      "sourceUrl": "https://catalogue.data.gov.bc.ca/dataset/923c5330-c798-4276-82c1-705000c5caac",
-      "note": "The current WFS publishes ownership as multiple rows per tenure; owner relationships must be normalized before public release."
-    },
-    {
-      "jurisdiction": "Quebec",
-      "status": "source-normalization-in-progress",
-      "sourceUrl": "https://documents-gestim.mines.gouv.qc.ca/cartes",
-      "note": "The weekly GESTIM active-title shapefile is verified; a reproducible shapefile import and bilingual field mapping remain required."
-    },
-    {
-      "jurisdiction": "Northwest Territories",
-      "status": "official-package-incomplete",
-      "sourceUrl": "https://www.geomatics.gov.nt.ca/en/mineral-claims",
-      "note": "The official ZIP retrieved during this audit contained metadata XML files but no claim geometry, so it was not presented as complete coverage."
-    },
     {
       "jurisdiction": "Prince Edward Island",
       "status": "coverage-confirmation-required",

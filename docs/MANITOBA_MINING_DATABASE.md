@@ -26,8 +26,9 @@ The database records the retrieval timestamp and source URL in `data_sources`. F
 The public Waniskâ Watch file is narrower than the research database. It includes current claims,
 exploration licences and leases, plus the 11 mine sites published as `Operational`. Rejected or
 converted claims and abandoned, orphaned, remediated or non-operational mine sites are excluded.
-A current `GOOD_STAND`, `ON_HOLD`, pending, renewal or reactivation status takes priority over an
+A current `GOOD_STAND`, `ON_HOLD`, renewal or reactivation status takes priority over an
 older due date because it indicates that the government source still treats the record as current.
+Records published only as `PENDING` are excluded from the public map.
 
 ## Treaty Assignment Method
 

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   });
   const loadLayer = async ({ id, label }: (typeof CLAIM_LAYERS)[number]) => {
     const params = new URLSearchParams({
-      where: "TENURE_STATUS IN ('Active','Pending')",
+      where: "TENURE_STATUS='Active'",
       geometry,
       geometryType: "esriGeometryEnvelope",
       inSR: "4326",

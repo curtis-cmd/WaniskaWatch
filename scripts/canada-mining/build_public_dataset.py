@@ -7,6 +7,8 @@ import argparse
 import json
 import sqlite3
 import sys
+import math
+import shutil
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,12 +41,12 @@ INACTIVE_STATUS_MARKERS = (
     "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
     "expired", "forfeited", "non operational", "orphaned", "past producing",
     "past-producing", "refused", "rejected", "remediated", "surrendered", "terminated",
-    "withdrawn",
+    "withdrawn", "pending", "application",
 )
 CURRENT_STATUS_MARKERS = (
     "active", "appl exemp", "appl exten", "appl lease", "appl rff",
-    "good stand", "hold", "operational", "pending", "producing mine",
-    "reactivat", "reinstat", "renew",
+    "good stand", "hold", "operational", "producer", "producing mine",
+    "reactivat", "reinstat",
 )
 
 
@@ -52,7 +54,7 @@ def normalized_status(value: Any) -> str:
     return " ".join(str(value or "").strip().lower().replace("_", " ").split())
 
 
-def is_current_record(row: sqlite3.Row, as_of_date: str) -> bool:
+def is_current_record(row: sqlite3.Row, as_of_date: str, strict_expiry: bool = False) -> bool:
     status = normalized_status(row["status"])
     record_type = str(row["record_type"] or "").lower()
     if "assessment file" in record_type:
@@ -65,7 +67,7 @@ def is_current_record(row: sqlite3.Row, as_of_date: str) -> bool:
         return any(marker in status for marker in CURRENT_STATUS_MARKERS) and "pending" not in status
     explicitly_current = any(marker in status for marker in CURRENT_STATUS_MARKERS)
     expiry_date = str(row["expiry_date"] or "")[:10]
-    if expiry_date and expiry_date < as_of_date and not explicitly_current:
+    if expiry_date and expiry_date < as_of_date and (strict_expiry or not explicitly_current):
         return False
     return True
 
@@ -85,6 +87,84 @@ def compact_geometry(geom, transformer, tolerance: float):
         geom = geom.simplify(tolerance, preserve_topology=True)
     wgs = transform(transformer.transform, geom)
     return rounded(mapping(wgs))
+
+
+class QuebecClaimTiles:
+    """Write compact current-claim tiles without retaining Quebec in memory."""
+
+    def __init__(self, data_root: Path, public_root: Path):
+        self.output_dir = public_root / "quebec-claims"
+        if self.output_dir.exists():
+            shutil.rmtree(self.output_dir)
+        self.output_dir.mkdir(parents=True)
+        self.staging_dir = data_root / "quebec-mining" / "processed" / "claim-tiles"
+        if self.staging_dir.exists():
+            shutil.rmtree(self.staging_dir)
+        self.staging_dir.mkdir(parents=True)
+        self.handles: dict[str, Any] = {}
+        self.counts: Counter[str] = Counter()
+        self.record_count = 0
+
+    @staticmethod
+    def keys_for_bounds(bounds: tuple[float, float, float, float]):
+        west, south, east, north = bounds
+        for longitude in range(math.floor(west), math.floor(east) + 1):
+            for latitude in range(math.floor(south), math.floor(north) + 1):
+                yield f"{longitude}_{latitude}", longitude, latitude
+
+    def add(self, feature: dict[str, Any], bounds: tuple[float, float, float, float]) -> None:
+        serialized = json.dumps(feature, separators=(",", ":"), ensure_ascii=False)
+        for key, _longitude, _latitude in self.keys_for_bounds(bounds):
+            handle = self.handles.get(key)
+            if handle is None:
+                handle = (self.staging_dir / f"{key}.ndjson").open("w", encoding="utf-8")
+                self.handles[key] = handle
+            handle.write(serialized + "\n")
+            self.counts[key] += 1
+        self.record_count += 1
+
+    def finish(self, generated_at: str, source_url: str) -> None:
+        for handle in self.handles.values():
+            handle.close()
+        tiles = []
+        for key in sorted(self.counts):
+            longitude, latitude = (int(value) for value in key.split("_"))
+            filename = f"{key}.json"
+            source_path = self.staging_dir / f"{key}.ndjson"
+            with (self.output_dir / filename).open("w", encoding="utf-8") as output:
+                output.write('{"type":"FeatureCollection","features":[')
+                first = True
+                with source_path.open(encoding="utf-8") as source:
+                    for line in source:
+                        if not first:
+                            output.write(",")
+                        output.write(line.rstrip("\n"))
+                        first = False
+                output.write("]}")
+            tiles.append(
+                {
+                    "key": key,
+                    "file": f"/data/quebec-claims/{filename}",
+                    "bounds": [longitude, latitude, longitude + 1, latitude + 1],
+                    "featureCount": self.counts[key],
+                }
+            )
+        (self.output_dir / "index.json").write_text(
+            json.dumps(
+                {
+                    "metadata": {
+                        "generatedAt": generated_at,
+                        "recordCount": self.record_count,
+                        "source": "Gouvernement du Québec GESTIM — Active Titles",
+                        "sourceUrl": source_url,
+                    },
+                    "tiles": tiles,
+                },
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
 
 
 def build_province(province_key: str, data_root: Path, public_root: Path) -> dict[str, Any]:
@@ -149,7 +229,12 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         encoding="utf-8",
     )
 
-    omitted_claim_polygons = province_key in {"ontario", "yukon", "nunavut"}
+    claim_delivery = config.get(
+        "claim_delivery",
+        "viewport-live" if province_key in {"ontario", "yukon", "nunavut"} else "included",
+    )
+    omitted_claim_polygons = claim_delivery != "included"
+    quebec_tiles = QuebecClaimTiles(data_root, public_root) if province_key == "quebec" else None
     rows = db.execute(
         """SELECT r.*, s.source_name, s.source_url,
                   COALESCE(t.territory_name, 'Unassigned') territory_name
@@ -168,13 +253,36 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     kind_lookup = {"claim": "claim", "exploration": "exploration", "operation": "lease"}
     tolerances = {"claim": 75, "exploration": 200, "operation": 75}
     for row in rows:
-        if not is_current_record(row, as_of_date):
+        if not is_current_record(row, as_of_date, bool(config.get("strict_expiry"))):
             continue
         counts[row["category"]] += 1
         treaty_counts[row["territory_name"]] += 1
         if row["holder_or_owner"]:
             holders.add(row["holder_or_owner"])
         if omitted_claim_polygons and row["category"] == "claim":
+            if quebec_tiles:
+                geom = wkt.loads(row["geometry_wkt_epsg3347"])
+                wgs_geometry = compact_geometry(geom, to_wgs84, 20)
+                wgs_shape = transform(to_wgs84.transform, geom)
+                quebec_tiles.add(
+                    {
+                        "type": "Feature",
+                        "id": f"quebec:claim:{row['source_object_id']}",
+                        "geometry": wgs_geometry,
+                        "properties": {
+                            "OBJECTID": row["source_object_id"],
+                            "TIT_NO": row["external_id"],
+                            "STATUS": row["status"],
+                            "OWNERS": row["holder_or_owner"],
+                            "ISSUE_DATE": row["issue_date"],
+                            "EXPIRY_DATE": row["expiry_date"],
+                            "AREA_HA": row["reported_area_hectares"],
+                            "LOCATION": row["location_description"],
+                            "TITLE_TYPE": row["record_type"],
+                        },
+                    },
+                    wgs_shape.bounds,
+                )
             continue
         geom = wkt.loads(row["geometry_wkt_epsg3347"])
         kind = "mine" if row["record_type"] in {"Mine location", "Producing mine"} else kind_lookup[
@@ -225,11 +333,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "counts": counts,
             "recordedHolderCount": holder_count,
             "treatyCounts": dict(treaty_counts),
-            "claimDelivery": (
-                "viewport-live"
-                if omitted_claim_polygons
-                else "included"
-            ),
+            "claimDelivery": claim_delivery,
             "locationNote": (
                 f"Current {province_name} claim polygons are loaded from the government source "
                 "by map viewport; inactive and historical records are excluded from the public view."
@@ -246,6 +350,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         json.dumps(dataset_payload, separators=(",", ":"), ensure_ascii=False),
         encoding="utf-8",
     )
+    if quebec_tiles:
+        quebec_tiles.finish(generated_at, config["catalogue_url"])
     db.close()
     return {
         "key": province_key,
