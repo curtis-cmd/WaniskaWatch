@@ -444,6 +444,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   font-weight: 750;
 }
 .watch-record-actions button { background: transparent; color: var(--watch-forest); }
+.watch-correction-link {
+  display: block;
+  margin-top: 10px;
+  color: var(--watch-forest);
+  font-size: 11px;
+  font-weight: 750;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .watch-context-support { width: 100%; margin-top: 8px; background: #e8eee8; color: var(--watch-forest); }
 .watch-record-detail .watch-record-limit { margin: 13px 0 0; color: #6f5a37; line-height: 1.45; }
 
@@ -509,6 +519,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 }
 .watch-legal-notice p { margin: 0; color: #625a49; font-size: 13px; line-height: 1.7; }
 .watch-legal-notice p + p { margin-top: 14px; padding-top: 14px; border-top: 1px solid #d3c4a5; }
+.watch-legal-notice a { color: var(--watch-forest); font-weight: 750; text-underline-offset: 3px; }
+.watch-legal-notice .watch-correction-notice { color: #3f4d3c; }
 
 .watch-services-band {
   background: var(--watch-forest-dark);

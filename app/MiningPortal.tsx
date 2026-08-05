@@ -243,6 +243,13 @@ function readableStatus(status: string | null) {
   return status.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+function recordedPartyLabel(kind: ActivityKind) {
+  if (kind === "lease") return "Recorded lease holder";
+  if (kind === "exploration") return "Recorded licence holder or applicant";
+  if (kind === "mine") return "Recorded operator or proponent";
+  return "Recorded holder";
+}
+
 const inactiveStatusMarkers = [
   "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
   "expired", "forfeited", "non operational", "orphaned", "past producing",
@@ -319,7 +326,7 @@ function activityTooltip(properties: ActivityProperties) {
     <small>Record ${escapeHtml(properties.id)}</small>
     <dl>
       <div><dt>Status</dt><dd>${escapeHtml(readableStatus(properties.status))}</dd></div>
-      <div><dt>Holder</dt><dd>${escapeHtml(holder)}</dd></div>
+      <div><dt>${escapeHtml(recordedPartyLabel(properties.kind))}</dt><dd>${escapeHtml(holder)}</dd></div>
       <div><dt>Area</dt><dd>${escapeHtml(area)}</dd></div>
       <div><dt>Territory</dt><dd>${escapeHtml(territoryLabel(properties.treaty))}</dd></div>
     </dl>
@@ -1332,14 +1339,14 @@ export default function MiningPortal() {
               <span><i style={{ color: kindMeta[selected.properties.kind].color }} aria-hidden="true">{kindMeta[selected.properties.kind].marker}</i>{selected.properties.kindLabel}</span>
               <button type="button" onClick={closeSelected} aria-label="Close record details">×</button>
             </div>
-            <div className="watch-record-status"><b>{readableStatus(selected.properties.status)}</b><span>Source verified</span></div>
+            <div className="watch-record-status"><b>{readableStatus(selected.properties.status)}</b><span>Published status</span></div>
             <h3 id="record-title">{selected.properties.name || selected.properties.id}</h3>
             <p>Public record ID {selected.properties.id}</p>
             {selected.properties.description && <p className="watch-record-description">{selected.properties.description}</p>}
             <dl>
               <div><dt>Province</dt><dd>{provinceConfig.name}</dd></div>
               <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Spatially inferred primary polygon match; other overlaps may exist</small></dd></div>
-              <div><dt>Recorded holder</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Source evidence available" : "Completeness limited"}</small></dd></div>
+              <div><dt>{recordedPartyLabel(selected.properties.kind)}</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Reproduced from the cited public source" : "Completeness limited"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
               {selected.properties.location && <div><dt>Published location</dt><dd>{selected.properties.location}</dd></div>}
               <div><dt>Area</dt><dd>{selected.properties.areaHa == null ? "Not published" : `${fmt(selected.properties.areaHa)} ha`}</dd></div>
@@ -1347,7 +1354,8 @@ export default function MiningPortal() {
               <div><dt>Issue date</dt><dd>{formatDate(selected.properties.issueDate)}</dd></div>
               <div><dt>Expiry date</dt><dd>{formatDate(selected.properties.expiryDate)}</dd></div>
               <div><dt>Published coordinates</dt><dd>{selected.properties.latitude.toFixed(4)}, {selected.properties.longitude.toFixed(4)}<small>{selected.properties.locationAccuracy || "Feature geometry; field conditions not verified"}</small></dd></div>
-              <div><dt>Source retrieved</dt><dd>{formatDate(selected.properties.lastUpdated)}</dd></div>
+              <div><dt>Official source</dt><dd>{selected.properties.sourceName || miningDataset?.metadata.source || "Government public record"}</dd></div>
+              <div><dt>Last verified</dt><dd>{formatDate(selected.properties.lastUpdated || miningDataset?.metadata.generatedAt)}</dd></div>
             </dl>
 
             <section className="watch-public-contact">
@@ -1367,6 +1375,10 @@ export default function MiningPortal() {
               <a href={selected.properties.sourceUrl || miningDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open government source ↗</a>
               <button type="button" onClick={copySelectedLink}>{copied ? "Link copied" : "Copy record link"}</button>
             </div>
+            <a
+              className="watch-correction-link"
+              href={`mailto:info@waniskaservices.ca?subject=${encodeURIComponent(`Waniskâ Watch correction request — ${selected.properties.id}`)}&body=${encodeURIComponent(`Please review the following Waniskâ Watch record:\n\nRecord ID: ${selected.properties.id}\nProvince or territory: ${provinceConfig.name}\nRecord: ${selected.properties.name || selected.properties.id}\nOfficial source: ${selected.properties.sourceUrl || miningDataset?.metadata.sourceUrl || "Not published"}\n\nCorrection requested:\n`)}`}
+            >Report an error or request a correction</a>
             <button className="watch-context-support" type="button" onClick={() => supportDialog.current?.showModal()}>Need help interpreting this record?</button>
             <p className="watch-record-limit"><strong>Claims and licences are not evidence of consultation or consent.</strong> Verify current status with the responsible government and the relevant Nation, community, lands office or consultation office.</p>
           </article>}
@@ -1425,8 +1437,10 @@ export default function MiningPortal() {
         <h2 id="legal-title">Public and third-party information</h2>
       </div>
       <div className="watch-legal-notice">
-        <p>Records, maps, boundaries, contacts and links are compiled from publicly available government and other third-party sources. They may be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
+        <p>Waniskâ Watch compiles and continually updates its database using publicly available government records and other third-party sources. Despite reasonable efforts to keep the database current, records, maps, boundaries, contacts and links may from time to time be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
+        <p>Company and individual names are reproduced as recorded in cited public sources for identification and research. Inclusion does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity beyond the status shown. Records may change and must be verified with the responsible authority.</p>
         <p><strong>The information must be independently verified and must not be relied upon.</strong> Before acting, confirm the information with the responsible government registry and the affected Nation, community, rights holder, lands office or consultation office, as appropriate.</p>
+        <p className="watch-correction-notice"><strong>See something that should be corrected?</strong> <a href="mailto:info@waniskaservices.ca?subject=Wanisk%C3%A2%20Watch%20correction%20request">Report an error or request a correction.</a> Please include the record ID and official source where available.</p>
       </div>
     </section>
 
