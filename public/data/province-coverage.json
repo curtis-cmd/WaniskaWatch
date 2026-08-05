@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-05T08:00:50.686073+00:00",
+    "generatedAt": "2026-08-05T15:38:32.478856+00:00",
     "note": "Current verified provincial mining coverage available in Waniskâ Watch; inactive and historical records are excluded."
   },
   "provinces": [
@@ -20,7 +20,8 @@
       "territoryCount": 4,
       "miningDataset": "/data/british-columbia-mining.json",
       "territoryDataset": "/data/british-columbia-territories.json",
-      "claimDelivery": "viewport-live"
+      "claimDelivery": "viewport-live",
+      "claimOverview": "/data/british-columbia-claim-overview.json"
     },
     {
       "key": "alberta",
@@ -104,7 +105,8 @@
       "territoryCount": 14,
       "miningDataset": "/data/yukon-mining.json",
       "territoryDataset": "/data/yukon-territories.json",
-      "claimDelivery": "viewport-live"
+      "claimDelivery": "viewport-live",
+      "claimOverview": "/data/yukon-claim-overview.json"
     },
     {
       "key": "nunavut",
@@ -122,7 +124,8 @@
       "territoryCount": 11,
       "miningDataset": "/data/nunavut-mining.json",
       "territoryDataset": "/data/nunavut-territories.json",
-      "claimDelivery": "viewport-live"
+      "claimDelivery": "viewport-live",
+      "claimOverview": "/data/nunavut-claim-overview.json"
     },
     {
       "key": "northwest-territories",
@@ -157,7 +160,8 @@
       "territoryCount": 5,
       "miningDataset": "/data/quebec-mining.json",
       "territoryDataset": "/data/quebec-territories.json",
-      "claimDelivery": "viewport-static"
+      "claimDelivery": "viewport-static",
+      "claimOverview": "/data/quebec-claim-overview.json"
     },
     {
       "key": "saskatchewan",
@@ -192,7 +196,8 @@
       "territoryCount": 7,
       "miningDataset": "/data/ontario-mining.json",
       "territoryDataset": "/data/ontario-territories.json",
-      "claimDelivery": "viewport-live"
+      "claimDelivery": "viewport-live",
+      "claimOverview": "/data/ontario-claim-overview.json"
     }
   ]
 }

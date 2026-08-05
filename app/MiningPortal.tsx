@@ -65,7 +65,23 @@ type ActivityDataset = FeatureCollection<Geometry, ActivityProperties> & {
     recordedHolderCount?: number;
     treatyCounts?: Record<string, number>;
     claimDelivery?: "included" | "viewport-live" | "viewport-static";
+    claimOverview?: string;
     locationNote?: string;
+  };
+};
+type ClaimOverviewProperties = {
+  count: number;
+  bounds: [number, number, number, number];
+};
+type ClaimOverviewDataset = FeatureCollection<Geometry, ClaimOverviewProperties> & {
+  metadata: {
+    generatedAt: string;
+    province: string;
+    currentOnly: true;
+    claimCount: number;
+    cellCount: number;
+    gridDegrees: number;
+    note: string;
   };
 };
 type TreatyProperties = {
@@ -111,6 +127,7 @@ const provinces: Record<ProvinceKey, {
   name: string;
   miningPath: string;
   territoryPath: string;
+  claimOverviewPath?: string;
   center: [number, number];
   zoom: number;
 }> = {
@@ -132,6 +149,7 @@ const provinces: Record<ProvinceKey, {
     name: "Ontario",
     miningPath: "/data/ontario-mining.json",
     territoryPath: "/data/ontario-territories.json",
+    claimOverviewPath: "/data/ontario-claim-overview.json",
     center: [50.1, -85.3],
     zoom: 5,
   },
@@ -167,6 +185,7 @@ const provinces: Record<ProvinceKey, {
     name: "Yukon",
     miningPath: "/data/yukon-mining.json",
     territoryPath: "/data/yukon-territories.json",
+    claimOverviewPath: "/data/yukon-claim-overview.json",
     center: [64.2, -135.5],
     zoom: 5,
   },
@@ -174,6 +193,7 @@ const provinces: Record<ProvinceKey, {
     name: "Nunavut",
     miningPath: "/data/nunavut-mining.json",
     territoryPath: "/data/nunavut-territories.json",
+    claimOverviewPath: "/data/nunavut-claim-overview.json",
     center: [67.1, -92.2],
     zoom: 4,
   },
@@ -181,6 +201,7 @@ const provinces: Record<ProvinceKey, {
     name: "British Columbia",
     miningPath: "/data/british-columbia-mining.json",
     territoryPath: "/data/british-columbia-territories.json",
+    claimOverviewPath: "/data/british-columbia-claim-overview.json",
     center: [54.3, -125.2],
     zoom: 5,
   },
@@ -195,9 +216,18 @@ const provinces: Record<ProvinceKey, {
     name: "Quebec",
     miningPath: "/data/quebec-mining.json",
     territoryPath: "/data/quebec-territories.json",
+    claimOverviewPath: "/data/quebec-claim-overview.json",
     center: [52.2, -71.7],
     zoom: 5,
   },
+};
+
+const claimDetailZoom: Partial<Record<ProvinceKey, number>> = {
+  ontario: 9,
+  yukon: 8,
+  nunavut: 7,
+  "british-columbia": 8,
+  quebec: 8,
 };
 
 function WatchLogo({ variant = "black" }: { variant?: "black" | "white" }) {
@@ -395,6 +425,7 @@ export default function MiningPortal() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
   const activityLayer = useRef<LeafletGeoJSON | null>(null);
+  const claimOverviewLayer = useRef<LeafletGeoJSON | null>(null);
   const activityFeatureLayers = useRef<Map<string, ActivityMapLayer>>(new Map());
   const treatyLayer = useRef<LeafletGeoJSON | null>(null);
   const recordButtons = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -403,6 +434,7 @@ export default function MiningPortal() {
   const [miningDataset, setMiningDataset] = useState<ActivityDataset | null>(null);
   const [treatyDataset, setTreatyDataset] = useState<TreatyDataset | null>(null);
   const [liveClaims, setLiveClaims] = useState<ActivityFeature[]>([]);
+  const [claimOverview, setClaimOverview] = useState<ClaimOverviewDataset | null>(null);
   const [claimViewportNote, setClaimViewportNote] = useState<string | null>(null);
   const [contacts, setContacts] = useState<ContactDirectory | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus>("loading");
@@ -442,11 +474,17 @@ export default function MiningPortal() {
         if (!response.ok) throw new Error("Contact directory unavailable");
         return response.json();
       }),
-    ]).then(([mining, treaties, directory]) => {
+      provinces[province].claimOverviewPath
+        ? fetch(appPath(provinces[province].claimOverviewPath)).then(response => (
+          response.ok ? response.json() : null
+        )).catch(() => null)
+        : Promise.resolve(null),
+    ]).then(([mining, treaties, directory, overview]) => {
       if (!active) return;
       setMiningDataset(mining);
       setTreatyDataset(treaties);
       setContacts(directory);
+      setClaimOverview(overview);
       setDataStatus("ready");
       if (typeof window !== "undefined") {
         const recordId = new URLSearchParams(window.location.search).get("record");
@@ -472,6 +510,7 @@ export default function MiningPortal() {
       setMiningDataset(null);
       setTreatyDataset(null);
       setContacts(null);
+      setClaimOverview(null);
       setDataStatus("error");
     });
     return () => { active = false; };
@@ -697,16 +736,16 @@ export default function MiningPortal() {
     let controller: AbortController | null = null;
     const loadClaims = async () => {
       const zoom = map.getZoom();
-      const minimumZoom = province === "ontario"
-        ? 9
-        : province === "nunavut"
-          ? 7
-          : 8;
+      const minimumZoom = claimDetailZoom[province] ?? 8;
       const provinceName = provinces[province].name;
       if (zoom < minimumZoom) {
         controller?.abort();
         setLiveClaims([]);
-        setClaimViewportNote(`Zoom in to level ${minimumZoom} or closer to load ${provinceName} claim polygons.`);
+        setClaimViewportNote(
+          claimOverview
+            ? `Gold circles summarize current ${provinceName} claims. Select one or zoom to level ${minimumZoom} to load exact claim boundaries.`
+            : `Zoom in to level ${minimumZoom} or closer to load ${provinceName} claim polygons.`,
+        );
         return;
       }
       controller?.abort();
@@ -847,7 +886,69 @@ export default function MiningPortal() {
       controller?.abort();
       map.off("moveend", loadClaims);
     };
-  }, [mapReady, miningDataset?.metadata.generatedAt, province, treatyDataset]);
+  }, [claimOverview, mapReady, miningDataset?.metadata.generatedAt, province, treatyDataset]);
+
+  useEffect(() => {
+    const map = mapInstance.current;
+    const minimumZoom = claimDetailZoom[province];
+    if (!mapReady || !map || !claimOverview || minimumZoom == null || !activeMineralKinds.has("claim")) {
+      claimOverviewLayer.current?.remove();
+      claimOverviewLayer.current = null;
+      return;
+    }
+    let active = true;
+    let overview: LeafletGeoJSON | null = null;
+    const syncVisibility = () => {
+      if (!overview || !mapInstance.current) return;
+      if (mapInstance.current.getZoom() < minimumZoom) {
+        if (!mapInstance.current.hasLayer(overview)) overview.addTo(mapInstance.current);
+      } else if (mapInstance.current.hasLayer(overview)) {
+        overview.remove();
+      }
+    };
+    import("leaflet").then(L => {
+      if (!active || !mapInstance.current) return;
+      claimOverviewLayer.current?.remove();
+      overview = L.geoJSON(claimOverview, {
+        pointToLayer: (feature, latlng) => {
+          const count = Number((feature.properties as ClaimOverviewProperties).count || 0);
+          return L.circleMarker(latlng, {
+            radius: Math.min(24, 6 + Math.log10(count + 1) * 4.2),
+            color: "#fffefa",
+            weight: 2,
+            fillColor: kindMeta.claim.color,
+            fillOpacity: 0.78,
+          });
+        },
+        onEachFeature: (feature, itemLayer) => {
+          const properties = feature.properties as ClaimOverviewProperties;
+          const count = Number(properties.count || 0);
+          itemLayer.bindTooltip(
+            `<div class="watch-overview-tooltip"><strong>${count.toLocaleString("en-CA")} current claims</strong><span>Aggregated in this area</span><em>Select to inspect exact claim boundaries</em></div>`,
+            { sticky: true, direction: "top", opacity: 1, className: "watch-claim-overview-tip" },
+          );
+          itemLayer.on("click", () => {
+            if (!mapInstance.current || feature.geometry.type !== "Point") return;
+            const [longitude, latitude] = feature.geometry.coordinates;
+            mapInstance.current.flyTo(
+              [latitude, longitude],
+              minimumZoom,
+              { duration: prefersReducedMotion() ? 0 : 0.65 },
+            );
+          });
+        },
+      });
+      claimOverviewLayer.current = overview;
+      syncVisibility();
+      map.on("zoomend", syncVisibility);
+    });
+    return () => {
+      active = false;
+      map.off("zoomend", syncVisibility);
+      overview?.remove();
+      if (claimOverviewLayer.current === overview) claimOverviewLayer.current = null;
+    };
+  }, [activeMineralKinds, claimOverview, mapReady, province]);
 
   useEffect(() => {
     if (!mapReady || !mapInstance.current) return;
@@ -937,6 +1038,7 @@ export default function MiningPortal() {
     setMiningDataset(null);
     setTreatyDataset(null);
     setLiveClaims([]);
+    setClaimOverview(null);
     setClaimViewportNote(null);
     setTerritory(`All ${provinces[nextProvince].name}`);
     setSelected(null);
@@ -1018,7 +1120,10 @@ export default function MiningPortal() {
   const usesViewportClaims = ["ontario", "yukon", "nunavut", "british-columbia", "quebec"].includes(province);
   const isWaitingForViewportClaims = usesViewportClaims
     && !filtered.length
-    && Boolean(claimViewportNote?.startsWith("Zoom in"));
+    && Boolean(
+      claimViewportNote?.startsWith("Zoom in")
+      || claimViewportNote?.startsWith("Gold circles"),
+    );
 
   return <main className="territory-watch-portal" id="top">
     <a className="skip-link" href="#territory-watch">Skip to Territory Watch map</a>
@@ -1212,7 +1317,10 @@ export default function MiningPortal() {
             <strong>MAP LEGEND</strong>
             {mineralKinds.map(kind => <span key={kind}><i style={{ color: kindMeta[kind].color }} aria-hidden="true">{kindMeta[kind].marker}</i>{kindMeta[kind].short}</span>)}
             <span><i className="boundary-symbol" aria-hidden="true" />Historic treaty boundary</span>
-            <small>Hover or tap a claim to identify it. Select for full details.</small>
+            {usesViewportClaims && claimOverview && <span><i className="claim-overview-symbol" aria-hidden="true" />Claim activity overview</span>}
+            <small>{usesViewportClaims && claimOverview
+              ? "Gold circles summarize current claims at province scale. Select one to load exact boundaries."
+              : "Hover or tap a claim to identify it. Select for full details."}</small>
           </div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
           {usesViewportClaims && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}

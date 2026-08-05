@@ -76,6 +76,25 @@ def main() -> None:
         )
         if expired_count:
             issues.append(f"{expired_count} bundled records are past their published expiry date")
+        overview_cell_count = None
+        claim_overview = metadata.get("claimOverview")
+        if claim_overview:
+            overview_path = root / "public" / str(claim_overview).lstrip("/")
+            if not overview_path.exists():
+                issues.append("claim overview file is missing")
+            else:
+                overview = json.loads(overview_path.read_text(encoding="utf-8"))
+                overview_features = overview.get("features") or []
+                overview_metadata = overview.get("metadata") or {}
+                overview_cell_count = len(overview_features)
+                if overview_metadata.get("currentOnly") is not True:
+                    issues.append("claim overview is not marked currentOnly")
+                if overview_metadata.get("cellCount") != overview_cell_count:
+                    issues.append("claim overview cell count does not match its features")
+                if overview_metadata.get("claimCount") != (metadata.get("counts") or {}).get("claim"):
+                    issues.append("claim overview total does not match current public claim count")
+                if overview_cell_count > 1_000:
+                    issues.append("claim overview exceeds the lightweight map budget")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
         if age_hours > 48:
@@ -114,6 +133,7 @@ def main() -> None:
                 "currentRecordCount": metadata.get("databaseRecordCount", metadata.get("featureCount")),
                 "bundledFeatureCount": len(features),
                 "claimDelivery": metadata.get("claimDelivery", "included"),
+                "claimOverviewCellCount": overview_cell_count,
                 "recordedHolderCount": metadata.get("recordedHolderCount"),
                 "normalizedRecordCount": normalized_count,
                 "lineage": lineage,

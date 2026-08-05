@@ -72,6 +72,87 @@ def is_current_record(row: sqlite3.Row, as_of_date: str, strict_expiry: bool = F
     return True
 
 
+def write_claim_overview(
+    province_key: str,
+    province_name: str,
+    db: sqlite3.Connection,
+    generated_at: str,
+    public_root: Path,
+    strict_expiry: bool,
+) -> str:
+    """Create a small current-claim density layer for province-scale navigation."""
+    grid_degrees = 0.5
+    cells: dict[tuple[int, int], dict[str, float | int]] = {}
+    as_of_date = generated_at[:10]
+    rows = db.execute(
+        """SELECT category, record_type, status, expiry_date,
+                  centroid_longitude, centroid_latitude
+           FROM mining_records
+           WHERE category='claim'"""
+    )
+    claim_count = 0
+    for row in rows:
+        if not is_current_record(row, as_of_date, strict_expiry):
+            continue
+        longitude = float(row["centroid_longitude"])
+        latitude = float(row["centroid_latitude"])
+        column = math.floor(longitude / grid_degrees)
+        row_index = math.floor(latitude / grid_degrees)
+        cell = cells.setdefault(
+            (column, row_index),
+            {"count": 0, "longitudeTotal": 0.0, "latitudeTotal": 0.0},
+        )
+        cell["count"] = int(cell["count"]) + 1
+        cell["longitudeTotal"] = float(cell["longitudeTotal"]) + longitude
+        cell["latitudeTotal"] = float(cell["latitudeTotal"]) + latitude
+        claim_count += 1
+
+    features = []
+    for (column, row_index), cell in sorted(cells.items()):
+        count = int(cell["count"])
+        west = column * grid_degrees
+        south = row_index * grid_degrees
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        round(float(cell["longitudeTotal"]) / count, 5),
+                        round(float(cell["latitudeTotal"]) / count, 5),
+                    ],
+                },
+                "properties": {
+                    "count": count,
+                    "bounds": [west, south, west + grid_degrees, south + grid_degrees],
+                },
+            }
+        )
+
+    relative_path = f"/data/{province_key}-claim-overview.json"
+    (public_root / f"{province_key}-claim-overview.json").write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "generatedAt": generated_at,
+                    "province": province_name,
+                    "currentOnly": True,
+                    "claimCount": claim_count,
+                    "cellCount": len(features),
+                    "gridDegrees": grid_degrees,
+                    "note": "Current claim centroids aggregated for province-scale navigation; select a marker to load exact government-published claim geometry.",
+                },
+                "type": "FeatureCollection",
+                "features": features,
+            },
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    return relative_path
+
+
 def rounded(value: Any, digits: int = 5):
     if isinstance(value, dict):
         return {key: rounded(item, digits) for key, item in value.items()}
@@ -234,6 +315,19 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         "viewport-live" if province_key in {"ontario", "yukon", "nunavut"} else "included",
     )
     omitted_claim_polygons = claim_delivery != "included"
+    as_of_date = generated_at[:10]
+    claim_overview_path = (
+        write_claim_overview(
+            province_key,
+            province_name,
+            db,
+            generated_at,
+            public_root,
+            bool(config.get("strict_expiry")),
+        )
+        if omitted_claim_polygons
+        else None
+    )
     quebec_tiles = QuebecClaimTiles(data_root, public_root) if province_key == "quebec" else None
     rows = db.execute(
         """SELECT r.*, s.source_name, s.source_url,
@@ -249,7 +343,6 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     counts: Counter[str] = Counter()
     treaty_counts: Counter[str] = Counter()
     holders: set[str] = set()
-    as_of_date = generated_at[:10]
     kind_lookup = {"claim": "claim", "exploration": "exploration", "operation": "lease"}
     tolerances = {"claim": 75, "exploration": 200, "operation": 75}
     for row in rows:
@@ -334,6 +427,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "recordedHolderCount": holder_count,
             "treatyCounts": dict(treaty_counts),
             "claimDelivery": claim_delivery,
+            "claimOverview": claim_overview_path,
             "locationNote": (
                 f"Current {province_name} claim polygons are loaded from the government source "
                 "by map viewport; inactive and historical records are excluded from the public view."
@@ -366,6 +460,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         "miningDataset": f"/data/{province_key}-mining.json",
         "territoryDataset": f"/data/{province_key}-territories.json",
         "claimDelivery": dataset_payload["metadata"]["claimDelivery"],
+        "claimOverview": claim_overview_path,
     }
 
 
@@ -374,6 +469,11 @@ def main() -> None:
     parser.add_argument("provinces", nargs="+", choices=sorted(PROVINCES))
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--public-root", type=Path, default=Path("public/data"))
+    parser.add_argument(
+        "--overview-only",
+        action="store_true",
+        help="Refresh lightweight claim overview layers without rebuilding detailed map datasets.",
+    )
     args = parser.parse_args()
     args.public_root.mkdir(parents=True, exist_ok=True)
 
@@ -383,14 +483,47 @@ def main() -> None:
         existing = json.loads(catalogue_path.read_text(encoding="utf-8"))
         catalogue_by_key = {
             entry["key"]: entry for entry in existing.get("provinces", [])
-        }
+    }
     for province in args.provinces:
-        entry = build_province(province, args.data_root, args.public_root)
+        if args.overview_only:
+            config = PROVINCES[province]
+            database = (
+                args.data_root
+                / f"{province}-mining"
+                / "processed"
+                / f"{province}_mining_by_territory.sqlite"
+            )
+            manifest = json.loads(
+                (args.data_root / f"{province}-mining" / "raw" / "download_manifest.json").read_text()
+            )
+            with sqlite3.connect(database) as overview_db:
+                overview_db.row_factory = sqlite3.Row
+                overview_path = write_claim_overview(
+                    province,
+                    config["name"],
+                    overview_db,
+                    manifest["retrieved_at"],
+                    args.public_root,
+                    bool(config.get("strict_expiry")),
+                )
+            dataset_path = args.public_root / f"{province}-mining.json"
+            dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+            dataset["metadata"]["claimOverview"] = overview_path
+            dataset_path.write_text(
+                json.dumps(dataset, separators=(",", ":"), ensure_ascii=False),
+                encoding="utf-8",
+            )
+            entry = catalogue_by_key[province]
+            entry["claimOverview"] = overview_path
+            print(f"{config['name']}: refreshed current-claim overview")
+        else:
+            entry = build_province(province, args.data_root, args.public_root)
         catalogue_by_key[province] = entry
-        print(
-            f"{entry['name']}: {entry['recordCount']:,} database records; "
-            f"{entry['mapFeatureCount']:,} bundled map features"
-        )
+        if not args.overview_only:
+            print(
+                f"{entry['name']}: {entry['recordCount']:,} database records; "
+                f"{entry['mapFeatureCount']:,} bundled map features"
+            )
     catalogue = [
         catalogue_by_key[key] for key in PROVINCES if key in catalogue_by_key
     ]

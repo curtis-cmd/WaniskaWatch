@@ -368,6 +368,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-map-legend span { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 650; }
 .watch-map-legend small { padding-top: 8px; border-top: 1px solid var(--watch-line); color: var(--watch-muted); font-size: 10px; line-height: 1.45; }
 .boundary-symbol { height: 8px; border-top: 2px dashed var(--watch-forest); }
+.claim-overview-symbol {
+  width: 13px !important;
+  height: 13px;
+  border: 2px solid #fffefa;
+  border-radius: 50%;
+  background: #b97b26;
+  box-shadow: 0 0 0 1px #b97b26;
+}
 .watch-map-source {
   position: absolute;
   z-index: 500;
@@ -576,6 +584,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-claim-preview dt { color: var(--watch-muted); font-size: 10px; }
 .watch-claim-preview dd { margin: 0; overflow-wrap: anywhere; font-size: 10px; font-weight: 750; text-align: right; }
 .watch-claim-preview em { display: block; margin-top: 10px; color: var(--watch-forest); font-size: 10px; font-style: normal; font-weight: 800; }
+.watch-claim-overview-tip {
+  padding: 0;
+  border: 1px solid #879b91;
+  border-radius: 0;
+  background: var(--watch-white);
+  box-shadow: 6px 6px 0 rgba(12, 41, 38, .16);
+}
+.watch-claim-overview-tip::before { border-top-color: #879b91 !important; }
+.watch-overview-tooltip { min-width: 190px; padding: 12px 14px; color: var(--watch-ink); }
+.watch-overview-tooltip strong { display: block; font: 600 18px/1.1 Georgia, serif; }
+.watch-overview-tooltip span { display: block; margin-top: 4px; color: var(--watch-muted); font-size: 10px; }
+.watch-overview-tooltip em { display: block; margin-top: 9px; color: var(--watch-forest); font-size: 10px; font-style: normal; font-weight: 800; }
 .leaflet-control-attribution { font-size: 10px !important; }
 
 @media (max-width: 1050px) {

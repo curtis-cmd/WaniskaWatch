@@ -126,6 +126,9 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /fitBounds\(bounds\.pad\(0\.2\)/);
   assert.match(portal, /paddingBottomRight/);
   assert.match(portal, /Hover or tap a claim to identify it/i);
+  assert.match(portal, /Gold circles summarize current/i);
+  assert.match(portal, /Claim activity overview/i);
+  assert.match(portal, /claim-overview\.json/i);
   assert.match(portal, /scrollIntoView\(\{ block: "nearest" \}\)/);
   assert.match(portal, /isCurrentActivity/);
   assert.match(portal, /assessment file/);
@@ -136,6 +139,27 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(bcClaimsRoute, /TERMINATION_DATE/);
   assert.match(bcClaimsRoute, /GOOD_TO_DATE/);
   assert.match(portal, /\/data\/quebec-claims\/index\.json/);
+});
+
+test("publishes lightweight current-claim overviews for large jurisdictions", async () => {
+  const expected = {
+    "ontario": 390_543,
+    "yukon": 198_861,
+    "nunavut": 4_403,
+    "british-columbia": 37_429,
+    "quebec": 220_841,
+  };
+  for (const [jurisdiction, claimCount] of Object.entries(expected)) {
+    const payload = JSON.parse(await readFile(
+      new URL(`../public/data/${jurisdiction}-claim-overview.json`, import.meta.url),
+      "utf8",
+    ));
+    assert.equal(payload.metadata.currentOnly, true);
+    assert.equal(payload.metadata.claimCount, claimCount);
+    assert.equal(payload.features.length, payload.metadata.cellCount);
+    assert.ok(payload.features.length < 1_000);
+    assert.equal(payload.features.every(feature => feature.geometry.type === "Point"), true);
+  }
 });
 
 test("publishes audited current-only coverage for twelve Canadian jurisdictions", async () => {
