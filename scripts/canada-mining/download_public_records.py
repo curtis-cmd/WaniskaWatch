@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import time
 import urllib.parse
 import urllib.request
@@ -16,8 +18,8 @@ from typing import Any
 from config import PROVINCES, STATCAN_PROVINCES, Layer
 
 OUT_SR = "3347"
-PAGE_SIZE = 1000
-WORKERS = 4
+PAGE_SIZE = int(os.environ.get("WANISKA_ARCGIS_PAGE_SIZE", "1000"))
+WORKERS = int(os.environ.get("WANISKA_ARCGIS_WORKERS", "4"))
 
 
 def fetch_json(url: str, attempts: int = 5) -> dict[str, Any]:
@@ -37,6 +39,20 @@ def fetch_json(url: str, attempts: int = 5) -> dict[str, Any]:
             last_error = error
             if attempt + 1 < attempts:
                 time.sleep(min(2**attempt, 16))
+    if last_error and "CERTIFICATE_VERIFY_FAILED" in str(last_error):
+        try:
+            completed = subprocess.run(
+                ["curl", "--fail", "--silent", "--show-error", "--max-time", "180", url],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(completed.stdout)
+            if payload.get("error"):
+                raise RuntimeError(str(payload["error"]))
+            return payload
+        except Exception as curl_error:
+            last_error = curl_error
     raise RuntimeError(f"Could not download {url}") from last_error
 
 
@@ -62,6 +78,23 @@ def post_json(url: str, params: dict[str, str], attempts: int = 5) -> dict[str, 
             last_error = error
             if attempt + 1 < attempts:
                 time.sleep(min(2**attempt, 16))
+    if last_error and "CERTIFICATE_VERIFY_FAILED" in str(last_error):
+        try:
+            completed = subprocess.run(
+                [
+                    "curl", "--fail", "--silent", "--show-error", "--max-time", "180",
+                    "--request", "POST", "--data", urllib.parse.urlencode(params), url,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(completed.stdout)
+            if payload.get("error"):
+                raise RuntimeError(str(payload["error"]))
+            return payload
+        except Exception as curl_error:
+            last_error = curl_error
     raise RuntimeError(f"Could not download {url} using an ArcGIS POST query") from last_error
 
 
@@ -80,7 +113,9 @@ def layer_ids(layer: Layer) -> list[int]:
             },
         )
     )
-    return sorted(payload.get("objectIds") or [])
+    # Some provincial ArcGIS services occasionally repeat an object ID.
+    # Page unique source keys so counts represent unique government records.
+    return sorted(set(payload.get("objectIds") or []))
 
 
 def download_page(layer: Layer, object_ids: list[int], destination: Path) -> dict[str, Any]:
@@ -168,15 +203,23 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("province", choices=sorted(PROVINCES))
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--boundaries-only",
         action="store_true",
         help="Keep previously downloaded mining pages and refresh only province/treaty boundaries.",
+    )
+    mode.add_argument(
+        "--mining-only",
+        action="store_true",
+        help="Refresh mining pages while retaining the previously verified boundary files.",
     )
     args = parser.parse_args()
     config = PROVINCES[args.province]
     raw_dir = args.data_root / f"{args.province}-mining" / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = raw_dir / "download_manifest.json"
+    previous_manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
 
     retrieved_at = datetime.now(timezone.utc).isoformat()
     manifest: dict[str, Any] = {
@@ -186,44 +229,59 @@ def main() -> None:
         "coordinate_reference_system": "EPSG:3347 (NAD83 / Statistics Canada Lambert)",
         "layers": [],
     }
-    if not args.boundaries_only:
+    if args.boundaries_only:
+        if not previous_manifest:
+            raise RuntimeError("--boundaries-only requires an existing download manifest")
+        manifest["layers"] = previous_manifest["layers"]
+    else:
         for layer in config["layers"]:
             result = download_layer(layer, raw_dir)
             manifest["layers"].append(result)
             print(f"{result['slug']}: {result['records']:,} records")
 
-    province_name, province_url, province_layer = STATCAN_PROVINCES
-    province_records = download_single_layer(
-        province_url,
-        province_layer,
-        raw_dir / "province_boundary.geojson",
-        where=f"PRUID='{config['pruid']}'",
-        max_allowable_offset="500",
-    )
-    manifest["province_boundary"] = {
-        "source_name": province_name,
-        "source_url": f"{province_url}/{province_layer}",
-        "records": province_records,
-    }
+    if args.mining_only:
+        if not previous_manifest:
+            raise RuntimeError("--mining-only requires previously verified boundary files")
+        for key, filename in (
+            ("province_boundary", "province_boundary.geojson"),
+            ("territory_boundary", "territory_boundaries.geojson"),
+        ):
+            if not (raw_dir / filename).exists():
+                raise RuntimeError(f"--mining-only requires {raw_dir / filename}")
+            manifest[key] = previous_manifest[key]
+    else:
+        province_name, province_url, province_layer = STATCAN_PROVINCES
+        province_records = download_single_layer(
+            province_url,
+            province_layer,
+            raw_dir / "province_boundary.geojson",
+            where=f"PRUID='{config['pruid']}'",
+            max_allowable_offset="500",
+        )
+        manifest["province_boundary"] = {
+            "source_name": province_name,
+            "source_url": f"{province_url}/{province_layer}",
+            "records": province_records,
+        }
 
-    territory_name, territory_url, territory_layer = config["territory_source"]
-    territory_records = download_single_layer(
-        territory_url,
-        territory_layer,
-        raw_dir / "territory_boundaries.geojson",
-        where="1=1",
-        max_allowable_offset="100",
-    )
-    manifest["territory_boundary"] = {
-        "source_name": territory_name,
-        "source_url": f"{territory_url}/{territory_layer}",
-        "records": territory_records,
-    }
-    (raw_dir / "download_manifest.json").write_text(
+        territory_name, territory_url, territory_layer = config["territory_source"]
+        territory_records = download_single_layer(
+            territory_url,
+            territory_layer,
+            raw_dir / "territory_boundaries.geojson",
+            where="1=1",
+            max_allowable_offset="100",
+        )
+        manifest["territory_boundary"] = {
+            "source_name": territory_name,
+            "source_url": f"{territory_url}/{territory_layer}",
+            "records": territory_records,
+        }
+    manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote manifest to {raw_dir / 'download_manifest.json'}")
+    print(f"Wrote manifest to {manifest_path}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Audit published mining datasets against their downloaded government manifests."""
+
+from __future__ import annotations
+
+import json
+import re
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from config import PROVINCES
+
+INACTIVE = re.compile(
+    r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
+    r"non operational|orphaned|past producing|refused|rejected|remediated|surrendered|terminated|withdrawn",
+    re.IGNORECASE,
+)
+
+PENDING_SOURCES = [
+    {
+        "jurisdiction": "British Columbia",
+        "status": "source-normalization-in-progress",
+        "sourceUrl": "https://catalogue.data.gov.bc.ca/dataset/923c5330-c798-4276-82c1-705000c5caac",
+        "note": "The current WFS publishes ownership as multiple rows per tenure; owner relationships must be normalized before public release.",
+    },
+    {
+        "jurisdiction": "Quebec",
+        "status": "source-normalization-in-progress",
+        "sourceUrl": "https://documents-gestim.mines.gouv.qc.ca/cartes",
+        "note": "The weekly GESTIM active-title shapefile is verified; a reproducible shapefile import and bilingual field mapping remain required.",
+    },
+    {
+        "jurisdiction": "Northwest Territories",
+        "status": "official-package-incomplete",
+        "sourceUrl": "https://www.geomatics.gov.nt.ca/en/mineral-claims",
+        "note": "The official ZIP retrieved during this audit contained metadata XML files but no claim geometry, so it was not presented as complete coverage.",
+    },
+    {
+        "jurisdiction": "Prince Edward Island",
+        "status": "coverage-confirmation-required",
+        "sourceUrl": "https://www.princeedwardisland.ca/en/topic/natural-resources",
+        "note": "No current public mineral-title polygon registry was identified; Waniskâ Watch will not represent a zero count as verified until confirmed with the province.",
+    },
+]
+
+
+def canonical_raw_count(raw_dir: Path, layer: dict[str, Any]) -> int:
+    slug = layer["slug"]
+    pages = [
+        page for page in (raw_dir / slug).glob("page-*.geojson")
+        if re.fullmatch(r"page-\d{5}\.geojson", page.name)
+    ]
+    return sum(
+        len(json.loads(page.read_text(encoding="utf-8")).get("features") or [])
+        for page in pages
+    )
+
+
+def main() -> None:
+    root = Path(__file__).resolve().parents[2]
+    public_root = root / "public" / "data"
+    audited_at = datetime.now(timezone.utc)
+    audits: list[dict[str, Any]] = []
+
+    dataset_keys = ["manitoba", *PROVINCES.keys()]
+    for key in dataset_keys:
+        dataset_path = public_root / f"{key}-mining.json"
+        if not dataset_path.exists():
+            continue
+        payload = json.loads(dataset_path.read_text(encoding="utf-8"))
+        metadata = payload.get("metadata") or {}
+        features = payload.get("features") or []
+        issues: list[str] = []
+        if metadata.get("currentOnly") is not True:
+            issues.append("dataset is not marked currentOnly")
+        if metadata.get("featureCount") != len(features):
+            issues.append("metadata featureCount does not match bundled features")
+        feature_ids = [str(feature.get("id")) for feature in features]
+        if len(feature_ids) != len(set(feature_ids)):
+            issues.append("duplicate public feature identifiers")
+        inactive_count = sum(
+            1 for feature in features
+            if INACTIVE.search(str((feature.get("properties") or {}).get("status") or ""))
+        )
+        if inactive_count:
+            issues.append(f"{inactive_count} clearly inactive bundled records")
+        generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
+        age_hours = (audited_at - generated_at).total_seconds() / 3600
+        if age_hours > 48:
+            issues.append(f"snapshot is {age_hours:.1f} hours old")
+
+        lineage: list[dict[str, Any]] = []
+        if key in PROVINCES:
+            raw_dir = root / "data" / f"{key}-mining" / "raw"
+            manifest = json.loads((raw_dir / "download_manifest.json").read_text(encoding="utf-8"))
+            for layer in manifest["layers"]:
+                found = canonical_raw_count(raw_dir, layer)
+                expected = int(layer["records"])
+                lineage.append({"layer": layer["slug"], "manifest": expected, "canonicalRaw": found})
+                if found != expected:
+                    issues.append(
+                        f"{layer['slug']} manifest/raw mismatch: {expected} expected, {found} found"
+                    )
+            db_path = (
+                root / "data" / f"{key}-mining" / "processed"
+                / f"{key}_mining_by_territory.sqlite"
+            )
+            with sqlite3.connect(db_path) as db:
+                normalized_count = int(db.execute("SELECT COUNT(*) FROM mining_records").fetchone()[0])
+            if normalized_count != sum(item["canonicalRaw"] for item in lineage):
+                issues.append("normalized record count does not match canonical raw features")
+        else:
+            normalized_count = int(metadata.get("featureCount") or 0)
+
+        audits.append(
+            {
+                "key": key,
+                "jurisdiction": metadata.get("province") or key.replace("-", " ").title(),
+                "status": "passed" if not issues else "review-required",
+                "generatedAt": metadata.get("generatedAt"),
+                "ageHours": round(age_hours, 2),
+                "currentRecordCount": metadata.get("databaseRecordCount", metadata.get("featureCount")),
+                "bundledFeatureCount": len(features),
+                "claimDelivery": metadata.get("claimDelivery", "included"),
+                "recordedHolderCount": metadata.get("recordedHolderCount"),
+                "normalizedRecordCount": normalized_count,
+                "lineage": lineage,
+                "issues": issues,
+            }
+        )
+
+    report = {
+        "metadata": {
+            "auditedAt": audited_at.isoformat(),
+            "result": "passed" if all(item["status"] == "passed" for item in audits) else "review-required",
+            "liveJurisdictionCount": len(audits),
+            "totalCurrentRecordCount": sum(int(item["currentRecordCount"] or 0) for item in audits),
+            "scope": "Current public mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts.",
+        },
+        "liveJurisdictions": audits,
+        "pendingJurisdictions": PENDING_SOURCES,
+    }
+    destination = public_root / "data-audit.json"
+    destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"Wrote {destination}")
+    for item in audits:
+        print(f"{item['jurisdiction']}: {item['status']} — {item['currentRecordCount']:,} current records")
+    if report["metadata"]["result"] != "passed":
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

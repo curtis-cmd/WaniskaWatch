@@ -36,14 +36,15 @@ COLORS = [
 ]
 
 INACTIVE_STATUS_MARKERS = (
-    "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
+    "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
     "expired", "forfeited", "non operational", "orphaned", "past producing",
-    "past-producing", "rejected", "remediated", "surrendered", "terminated",
+    "past-producing", "refused", "rejected", "remediated", "surrendered", "terminated",
+    "withdrawn",
 )
 CURRENT_STATUS_MARKERS = (
     "active", "appl exemp", "appl exten", "appl lease", "appl rff",
     "good stand", "hold", "operational", "pending", "producing mine",
-    "reactivat", "renew",
+    "reactivat", "reinstat", "renew",
 )
 
 
@@ -58,6 +59,8 @@ def is_current_record(row: sqlite3.Row, as_of_date: str) -> bool:
         return False
     if any(marker in status for marker in INACTIVE_STATUS_MARKERS):
         return False
+    if row["category"] == "claim" and status in {"converted", "leased", "refused", "withdrawn"}:
+        return False
     if record_type in {"mine location", "producing mine"}:
         return any(marker in status for marker in CURRENT_STATUS_MARKERS) and "pending" not in status
     explicitly_current = any(marker in status for marker in CURRENT_STATUS_MARKERS)
@@ -68,6 +71,8 @@ def is_current_record(row: sqlite3.Row, as_of_date: str) -> bool:
 
 
 def rounded(value: Any, digits: int = 5):
+    if isinstance(value, dict):
+        return {key: rounded(item, digits) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         if value and isinstance(value[0], (int, float)):
             return [round(number, digits) for number in value]
@@ -79,9 +84,7 @@ def compact_geometry(geom, transformer, tolerance: float):
     if tolerance and geom.geom_type not in {"Point", "MultiPoint"}:
         geom = geom.simplify(tolerance, preserve_topology=True)
     wgs = transform(transformer.transform, geom)
-    result = mapping(wgs)
-    result["coordinates"] = rounded(result["coordinates"])
-    return result
+    return rounded(mapping(wgs))
 
 
 def build_province(province_key: str, data_root: Path, public_root: Path) -> dict[str, Any]:
@@ -118,7 +121,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                 "properties": {
                     "name": row["territory_name"],
                     "year": "",
-                    "description": row["alternate_name"] or "Published historic treaty geography",
+                    "description": row["alternate_name"] or "Published treaty or agreement geography",
                     "color": COLORS[index % len(COLORS)],
                     "sourceUrl": row["source_url"],
                 },
@@ -131,7 +134,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "source": territory_source["source_name"],
             "sourceUrl": territory_source["source_url"],
             "boundaryNote": (
-                "Government-published historic treaty polygons are shown only as a geographic "
+                "Government-published treaty or agreement polygons are shown only as a geographic "
                 "index. They do not determine rights, title, traditional territory, consultation "
                 "obligations, or consent. Polygons are clipped to the province using Statistics "
                 "Canada's 2021 cartographic boundary."
@@ -146,7 +149,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         encoding="utf-8",
     )
 
-    omitted_claim_polygons = province_key == "ontario"
+    omitted_claim_polygons = province_key in {"ontario", "yukon", "nunavut"}
     rows = db.execute(
         """SELECT r.*, s.source_name, s.source_url,
                   COALESCE(t.territory_name, 'Unassigned') territory_name
@@ -215,12 +218,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "asOfDate": as_of_date,
             "currentOnly": True,
             "province": province_name,
-            "source": f"{province_name} government mining data catalogue",
-            "sourceUrl": (
-                "https://gis.saskatchewan.ca/arcgis/rest/services/Economy"
-                if province_key == "saskatchewan"
-                else "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS"
-            ),
+            "source": f"{province_name} public mining data catalogue",
+            "sourceUrl": config["catalogue_url"],
             "featureCount": len(features),
             "databaseRecordCount": total_records,
             "counts": counts,
@@ -232,8 +231,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                 else "included"
             ),
             "locationNote": (
-                "Current Ontario claim polygons are loaded from MLAS by map viewport; inactive "
-                "and historical records are excluded from the public view."
+                f"Current {province_name} claim polygons are loaded from the government source "
+                "by map viewport; inactive and historical records are excluded from the public view."
                 if omitted_claim_polygons
                 else "Only current government-status records are included; historical assessment "
                 "files and clearly inactive records are excluded."
@@ -272,15 +271,23 @@ def main() -> None:
     args = parser.parse_args()
     args.public_root.mkdir(parents=True, exist_ok=True)
 
-    catalogue = []
+    catalogue_path = args.public_root / "province-coverage.json"
+    catalogue_by_key: dict[str, dict[str, Any]] = {}
+    if catalogue_path.exists():
+        existing = json.loads(catalogue_path.read_text(encoding="utf-8"))
+        catalogue_by_key = {
+            entry["key"]: entry for entry in existing.get("provinces", [])
+        }
     for province in args.provinces:
         entry = build_province(province, args.data_root, args.public_root)
-        catalogue.append(entry)
+        catalogue_by_key[province] = entry
         print(
             f"{entry['name']}: {entry['recordCount']:,} database records; "
             f"{entry['mapFeatureCount']:,} bundled map features"
         )
-    catalogue_path = args.public_root / "province-coverage.json"
+    catalogue = [
+        catalogue_by_key[key] for key in PROVINCES if key in catalogue_by_key
+    ]
     catalogue_path.write_text(
         json.dumps(
             {

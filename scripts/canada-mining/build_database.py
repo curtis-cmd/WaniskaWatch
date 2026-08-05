@@ -201,7 +201,14 @@ def numeric(value: Any, divisor: float = 1.0) -> float | None:
 
 
 def feature_pages(raw_dir: Path, slug: str) -> Iterator[dict[str, Any]]:
-    for page in sorted((raw_dir / slug).glob("page-*.geojson")):
+    # Only consume canonical downloader pages. Synced filesystems can preserve
+    # a collision as e.g. ``page-00001 2.geojson``; those are not authoritative
+    # manifest pages and previously inflated Ontario counts.
+    pages = [
+        page for page in (raw_dir / slug).glob("page-*.geojson")
+        if re.fullmatch(r"page-\d{5}\.geojson", page.name)
+    ]
+    for page in sorted(pages):
         payload = json.loads(page.read_text(encoding="utf-8"))
         yield from payload.get("features") or []
 
@@ -336,8 +343,6 @@ def main() -> None:
     retrieved_at = manifest["retrieved_at"]
     province_geometry = load_boundary(raw_dir / "province_boundary.geojson")
     territories = load_territories(raw_dir, config, province_geometry)
-    if not territories:
-        raise RuntimeError("No territory polygons intersect the province")
     tree = STRtree([item["geometry"] for item in territories])
     to_wgs84 = Transformer.from_crs("EPSG:3347", "EPSG:4326", always_xy=True)
 
@@ -360,7 +365,7 @@ def main() -> None:
         url=territory_source["source_url"],
         retrieved_at=retrieved_at,
         notes=(
-            "Government-published historic treaty geography used as a contextual index only; "
+            "Government-published treaty or agreement geography used as a contextual index only; "
             "not a rights, title, traditional-territory, consultation, or consent determination."
         ),
     )
@@ -369,13 +374,14 @@ def main() -> None:
         geom = territory["geometry"]
         cursor = db.execute(
             """INSERT INTO territory_contexts
-               (province, territory_name, alternate_name, source_id, area_hectares,
+               (province, territory_name, alternate_name, context_type, source_id, area_hectares,
                 geometry_wkt_epsg3347)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 province_name,
                 territory["name"],
                 territory["alternate"],
+                config.get("territory_context_type", "historic_treaty"),
                 territory_source_id,
                 geom.area / 10_000,
                 geom.wkt,
@@ -399,6 +405,8 @@ def main() -> None:
             source_filter=layer.where,
         )
         layer_count = 0
+        duplicate_count = 0
+        seen_source_records: dict[str, str] = {}
         for feature in feature_pages(raw_dir, layer.slug):
             props = feature.get("properties") or {}
             if not feature.get("geometry"):
@@ -413,6 +421,21 @@ def main() -> None:
             )
             if not source_object_id:
                 continue
+            feature_fingerprint = json.dumps(
+                {"geometry": feature.get("geometry"), "properties": props},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+            if source_object_id in seen_source_records:
+                if seen_source_records[source_object_id] != feature_fingerprint:
+                    raise RuntimeError(
+                        f"{layer.slug}: source object {source_object_id} was published more "
+                        "than once with conflicting content"
+                    )
+                duplicate_count += 1
+                continue
+            seen_source_records[source_object_id] = feature_fingerprint
             external_id = clean_text(scalar(props, layer.external_id))
             holder = clean_text(scalar(props, layer.holder))
             source_record_url = clean_text(scalar(props, layer.source_link))
@@ -504,7 +527,8 @@ def main() -> None:
                         f"{layer.source_name} public field {layer.holder}",
                     ),
                 )
-        print(f"{layer.slug}: inserted {layer_count:,} records")
+        duplicate_note = f"; ignored {duplicate_count:,} exact source duplicates" if duplicate_count else ""
+        print(f"{layer.slug}: inserted {layer_count:,} records{duplicate_note}")
         db.commit()
 
     db.execute("PRAGMA optimize")

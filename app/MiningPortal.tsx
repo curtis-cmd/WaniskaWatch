@@ -7,7 +7,16 @@ import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Ma
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
 type DataStatus = "loading" | "ready" | "error";
-type ProvinceKey = "manitoba" | "saskatchewan" | "ontario";
+type ProvinceKey =
+  | "manitoba"
+  | "saskatchewan"
+  | "alberta"
+  | "ontario"
+  | "new-brunswick"
+  | "nova-scotia"
+  | "newfoundland-and-labrador"
+  | "yukon"
+  | "nunavut";
 type ContactInfo = {
   name: string;
   email?: string;
@@ -123,6 +132,48 @@ const provinces: Record<ProvinceKey, {
     center: [50.1, -85.3],
     zoom: 5,
   },
+  alberta: {
+    name: "Alberta",
+    miningPath: "/data/alberta-mining.json",
+    territoryPath: "/data/alberta-territories.json",
+    center: [55, -114],
+    zoom: 5,
+  },
+  "new-brunswick": {
+    name: "New Brunswick",
+    miningPath: "/data/new-brunswick-mining.json",
+    territoryPath: "/data/new-brunswick-territories.json",
+    center: [46.6, -66.5],
+    zoom: 7,
+  },
+  "nova-scotia": {
+    name: "Nova Scotia",
+    miningPath: "/data/nova-scotia-mining.json",
+    territoryPath: "/data/nova-scotia-territories.json",
+    center: [45.1, -63.2],
+    zoom: 7,
+  },
+  "newfoundland-and-labrador": {
+    name: "Newfoundland and Labrador",
+    miningPath: "/data/newfoundland-and-labrador-mining.json",
+    territoryPath: "/data/newfoundland-and-labrador-territories.json",
+    center: [53.2, -60.4],
+    zoom: 4,
+  },
+  yukon: {
+    name: "Yukon",
+    miningPath: "/data/yukon-mining.json",
+    territoryPath: "/data/yukon-territories.json",
+    center: [64.2, -135.5],
+    zoom: 5,
+  },
+  nunavut: {
+    name: "Nunavut",
+    miningPath: "/data/nunavut-mining.json",
+    territoryPath: "/data/nunavut-territories.json",
+    center: [67.1, -92.2],
+    zoom: 4,
+  },
 };
 
 function WatchLogo({ variant = "black" }: { variant?: "black" | "white" }) {
@@ -139,15 +190,15 @@ function readableStatus(status: string | null) {
 }
 
 const inactiveStatusMarkers = [
-  "abandoned", "cancelled", "closed", "conv lease", "converted to lease",
+  "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
   "expired", "forfeited", "non operational", "orphaned", "past producing",
-  "past-producing", "rejected", "remediated", "surrendered", "terminated",
+  "past-producing", "refused", "rejected", "remediated", "surrendered", "terminated", "withdrawn",
 ];
 
 const currentStatusMarkers = [
   "active", "appl exemp", "appl exten", "appl lease", "appl rff",
   "good stand", "hold", "operational", "pending", "producing mine",
-  "reactivat", "renew",
+  "reactivat", "reinstat", "renew",
 ];
 
 function normalizedStatus(status: string | null | undefined) {
@@ -159,6 +210,7 @@ function isCurrentActivity(properties: ActivityProperties, asOfDate = new Date()
   const recordType = String(properties.kindLabel || "").toLowerCase();
   if (recordType.includes("assessment file")) return false;
   if (inactiveStatusMarkers.some(marker => status.includes(marker))) return false;
+  if (properties.kind === "claim" && ["converted", "leased", "refused", "withdrawn"].includes(status)) return false;
   if (properties.kind === "mine") {
     return currentStatusMarkers.some(marker => status.includes(marker)) && !status.includes("pending");
   }
@@ -554,7 +606,10 @@ export default function MiningPortal() {
         },
         onEachFeature: (feature, layerItem) => {
           const props = feature.properties as TreatyProperties;
-          layerItem.bindTooltip(`${props.name} · historic treaty signed ${props.year}`, { sticky: true });
+          layerItem.bindTooltip(
+            props.year ? `${props.name} · treaty signed ${props.year}` : props.name,
+            { sticky: true },
+          );
           layerItem.on("click", () => selectTerritory(props.name));
         },
       }).addTo(mapInstance.current);
@@ -576,7 +631,8 @@ export default function MiningPortal() {
 
   useEffect(() => {
     const map = mapInstance.current;
-    if (!mapReady || !map || province !== "ontario" || !treatyDataset) {
+    const viewportClaimProvince = province === "ontario" || province === "yukon" || province === "nunavut";
+    if (!mapReady || !map || !viewportClaimProvince || !treatyDataset) {
       setLiveClaims([]);
       return;
     }
@@ -584,10 +640,12 @@ export default function MiningPortal() {
     let controller: AbortController | null = null;
     const loadClaims = async () => {
       const zoom = map.getZoom();
-      if (zoom < 9) {
+      const minimumZoom = province === "ontario" ? 9 : province === "yukon" ? 8 : 7;
+      const provinceName = provinces[province].name;
+      if (zoom < minimumZoom) {
         controller?.abort();
         setLiveClaims([]);
-        setClaimViewportNote("Zoom in to level 9 or closer to load Ontario claim polygons from MLAS.");
+        setClaimViewportNote(`Zoom in to level ${minimumZoom} or closer to load ${provinceName} claim polygons.`);
         return;
       }
       controller?.abort();
@@ -600,9 +658,9 @@ export default function MiningPortal() {
         north: String(bounds.getNorth()),
         zoom: String(zoom),
       });
-      setClaimViewportNote("Loading Ontario claims in this map view…");
+      setClaimViewportNote(`Loading ${provinceName} claims in this map view…`);
       try {
-        const response = await fetch(appPath(`/api/claims/ontario?${params}`), {
+        const response = await fetch(appPath(`/api/claims/${province}?${params}`), {
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("Claim service unavailable");
@@ -621,28 +679,38 @@ export default function MiningPortal() {
             if (typeof value === "number") return new Date(value).toISOString().slice(0, 10);
             return String(value);
           };
-          const id = String(properties.TENURE_NUMBER_ID || properties.OBJECTID);
+          const isYukon = province === "yukon";
+          const id = String(
+            properties.TENURE_NUMBER_ID || properties.GRANT_NUMBER || properties.CLAIM_NUM || properties.OBJECTID,
+          );
+          const holder = properties.HOLDER || properties.OWNER_NAME || properties.OWNERS;
+          const status = properties.TENURE_STATUS_DESC || properties.TENURE_STATUS || properties.CLAIM_STAT;
+          const issueDate = properties.ISSUE_DATE || properties.RECORDED_DATE;
+          const expiryDate = properties.CLAIM_DUE_DATE || properties.EXPIRY_DATE || properties.CANCEL_DT;
           return {
             type: "Feature",
-            id: `ontario:claim:${properties.OBJECTID}`,
+            id: `${province}:claim:${properties.OBJECTID}`,
             geometry: feature.geometry,
             properties: {
               id,
-              name: id,
+              name: properties.CLAIM_NAME ? String(properties.CLAIM_NAME) : id,
               kind: "claim",
-              kindLabel: "Mining claim",
+              kindLabel: isYukon
+                ? String(properties._WANISKA_CLAIM_TYPE || "Mining claim")
+                : "Mining claim",
               sector: "minerals",
               sectorLabel: "Minerals",
-              status: properties.TENURE_STATUS_DESC ? String(properties.TENURE_STATUS_DESC) : null,
+              status: status ? String(status) : null,
               treaty: treatyMatch?.properties.name || "Unassigned",
-              areaHa: null,
+              areaHa: properties.AREA_HA == null ? null : Number(properties.AREA_HA),
               commodity: null,
-              holder: properties.HOLDER ? String(properties.HOLDER) : null,
-              holderEvidence: properties.HOLDER ? "Published Ontario MLAS holder field" : null,
-              issueDate: dateValue(properties.ISSUE_DATE),
-              expiryDate: dateValue(properties.CLAIM_DUE_DATE),
+              holder: holder ? String(holder) : null,
+              holderEvidence: holder ? `Published ${provinceName} government holder field` : null,
+              issueDate: dateValue(issueDate),
+              expiryDate: dateValue(expiryDate),
               longitude,
               latitude,
+              location: properties.DISTRICT ? String(properties.DISTRICT) : null,
               sourceUrl: payload.metadata?.sourceUrl,
               sourceName: payload.metadata?.source,
               lastUpdated: miningDataset?.metadata.generatedAt || null,
@@ -654,12 +722,12 @@ export default function MiningPortal() {
         setClaimViewportNote(
           payload.metadata?.truncated
             ? `${Number(payload.metadata.count).toLocaleString("en-CA")} claims intersect this view; showing the first 2,000. Zoom in for complete local detail.`
-            : `${claims.length.toLocaleString("en-CA")} Ontario claim polygons loaded in this view.`,
+            : `${claims.length.toLocaleString("en-CA")} ${provinceName} claim polygons loaded in this view.`,
         );
       } catch (error) {
         if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         setLiveClaims([]);
-        setClaimViewportNote("Ontario MLAS claim polygons could not be loaded. Try moving the map or use the official source link.");
+        setClaimViewportNote(`${provinceName} claim polygons could not be loaded. Try moving the map or use the official source link.`);
       }
     };
     map.on("moveend", loadClaims);
@@ -875,9 +943,17 @@ export default function MiningPortal() {
             onChange={event => changeProvince(event.target.value as ProvinceKey)}
             aria-describedby="coverage-note"
           >
-            <option value="manitoba">Manitoba</option>
-            <option value="saskatchewan">Saskatchewan</option>
-            <option value="ontario">Ontario</option>
+            {Object.entries(provinces).sort(([, left], [, right]) => left.name.localeCompare(right.name)).map(([key, item]) => (
+              <option key={key} value={key}>{item.name}</option>
+            ))}
+            <optgroup label="Verified source integration in progress">
+              <option disabled>British Columbia</option>
+              <option disabled>Quebec</option>
+              <option disabled>Northwest Territories</option>
+            </optgroup>
+            <optgroup label="Coverage confirmation required">
+              <option disabled>Prince Edward Island</option>
+            </optgroup>
           </select>
         </label>
         <p id="coverage-note"><strong>{provinceConfig.name} coverage is live.</strong> Records are kept in province-specific source pipelines so differences between registries remain visible and auditable.</p>
@@ -905,7 +981,7 @@ export default function MiningPortal() {
             <button type="button" onClick={beginTerritoryWatch}>Search</button>
           </div>
         </div>
-        <p className="watch-future-entry"><b>National entry model:</b> province or territory · Nation or community · treaty or agreement · location · project · company · claim</p>
+        <p className="watch-future-entry"><b>Canada expansion:</b> nine jurisdictions now use verified government-source pipelines. British Columbia, Quebec and Northwest Territories remain labelled as in progress until their non-ArcGIS source files pass the same record-level checks.</p>
       </div>
     </section>
 
@@ -1029,7 +1105,7 @@ export default function MiningPortal() {
             <small>Hover or tap a claim to identify it. Select for full details.</small>
           </div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
-          {province === "ontario" && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
+          {(province === "ontario" || province === "yukon" || province === "nunavut") && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
 
           {selected && <article className="watch-record-detail" aria-labelledby="record-title">
             <div className="watch-record-detail-head">
@@ -1111,8 +1187,14 @@ export default function MiningPortal() {
         <article>
           <span>TERRITORIAL CONTEXT</span>
           <h3>{treatyDataset?.metadata.source || "Manitoba Land Initiative — Treaty Boundary"}</h3>
-          <dl><div><dt>Retrieved</dt><dd>{boundaryUpdated}</dd></div><div><dt>Coverage</dt><dd>{treatyDataset?.features.length || 5} historic treaty areas</dd></div><div><dt>Status</dt><dd>Geographic index</dd></div></dl>
+          <dl><div><dt>Retrieved</dt><dd>{boundaryUpdated}</dd></div><div><dt>Coverage</dt><dd>{treatyDataset?.features.length || 0} published treaty/agreement areas</dd></div><div><dt>Status</dt><dd>Geographic index</dd></div></dl>
           <a href={treatyDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open boundary source ↗</a>
+        </article>
+        <article>
+          <span>DATA AUDIT</span>
+          <h3>Current-record and source-lineage checks</h3>
+          <dl><div><dt>Scope</dt><dd>Freshness, status, identifiers, counts and raw-source lineage</dd></div><div><dt>Frequency</dt><dd>Every verified refresh</dd></div><div><dt>Status</dt><dd>Public audit record</dd></div></dl>
+          <a href={appPath("/data/data-audit.json")} target="_blank" rel="noreferrer">Open latest data audit ↗</a>
         </article>
       </div>
     </section>

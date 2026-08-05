@@ -3,11 +3,11 @@
 A Waniskâ Services product for community-first mining intelligence by treaty
 territory.
 
-The platform maps Manitoba mining claims, exploration licences, mineral leases
-and mine sites. It uses Manitoba's official historic-treaty boundary dataset as
-a geographic index, preserves source evidence, and connects recorded holders to
-verified public business contacts where available. Private personal contact
-information is not published.
+The platform maps current public mining claims, exploration licences, mineral
+leases and mine sites across nine Canadian jurisdictions. Province- and
+territory-specific pipelines preserve government-source evidence, map records
+against the appropriate published treaty or agreement context, and retain
+published holder names. Private personal contact information is not published.
 
 The product is intentionally separate from Waniskâ Payroll. It has its own:
 
@@ -19,9 +19,11 @@ The product is intentionally separate from Waniskâ Payroll. It has its own:
 
 The public map loads:
 
-- `public/data/manitoba-mining.json` — Manitoba iMaQs mining records
-- `public/data/manitoba-treaties.json` — official Manitoba historic-treaty polygons
+- `public/data/*-mining.json` — current-only jurisdiction datasets and map features
+- `public/data/*-territories.json` — published treaty/agreement geographic indexes
+- `public/data/province-coverage.json` — live jurisdiction coverage catalogue
+- `public/data/data-audit.json` — latest automated freshness and lineage audit
 - `public/data/proponent-contacts.json` — verified public corporate contacts
 
-See `docs/MANITOBA_MINING_DATABASE.md` for mining-source methodology, refresh
-instructions and treaty-boundary cautions.
+See `docs/MANITOBA_MINING_DATABASE.md` and `docs/CANADA_MINING_DATABASE.md` for
+source methodology, refresh instructions and treaty-boundary cautions.
