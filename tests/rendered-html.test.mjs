@@ -31,6 +31,7 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   const html = await response.text();
   assert.match(html, /<title>Waniskâ Watch — Territory Watch<\/title>/i);
   assert.match(html, /waniska-watch-header\.png/i);
+  assert.match(html, /waniska-watch-icon\.png/i);
   assert.match(html, /waniska-watch-footer\.png/i);
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A free community resource from/i);
@@ -41,7 +42,10 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /Mining activity/i);
   assert.match(html, /A claim is not consent/i);
   assert.match(html, /Information only—do not rely on this map/i);
-  assert.match(html, /compiled from publicly available government and other third-party sources/i);
+  assert.match(html, /compiles and continually updates its database using publicly available government records and other third-party sources/i);
+  assert.match(html, /Company and individual names are reproduced as recorded in cited public sources/i);
+  assert.match(html, /does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity/i);
+  assert.match(html, /Report an error or request a correction/i);
   assert.match(html, /must be independently verified and must not be relied upon/i);
   assert.match(html, /INFORMATION NOTICE/i);
   assert.match(html, /Public and third-party information/i);
@@ -104,7 +108,15 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /Nation-verified information will take priority/i);
   assert.match(portal, /No published treaty match/i);
   assert.match(portal, /Recorded holder or company/i);
+  assert.match(portal, /Recorded lease holder/i);
+  assert.match(portal, /Recorded operator or proponent/i);
+  assert.match(portal, /Official source/i);
+  assert.match(portal, /Last verified/i);
+  assert.match(portal, /Waniskâ Watch correction request/i);
   assert.match(portal, /Published status/i);
+  assert.match(portal, /Rights classification/i);
+  assert.match(portal, /setQuery\(""\)/i);
+  assert.match(portal, /setRightsFilter\(""\)/i);
   assert.match(portal, /Issue year from/i);
   assert.match(portal, /\/data\/saskatchewan-mining\.json/);
   assert.match(portal, /\/data\/saskatchewan-territories\.json/);

@@ -35,6 +35,7 @@ type ActivityProperties = {
   sector: Sector;
   sectorLabel: string;
   status: string | null;
+  rightsClassification?: string | null;
   treaty: string;
   areaHa: number | null;
   commodity: string | null;
@@ -250,6 +251,20 @@ function recordedPartyLabel(kind: ActivityKind) {
   return "Recorded holder";
 }
 
+function normalizePublishedFields(properties: ActivityProperties): ActivityProperties {
+  const publishedStatus = String(properties.status || "").trim();
+  const sourceName = String(properties.sourceName || "").toLowerCase();
+  const isOntarioLeaseRightsClassification = properties.kind === "lease"
+    && sourceName.includes("ontario")
+    && /\bright(s)?\b/i.test(publishedStatus);
+  if (!isOntarioLeaseRightsClassification) return properties;
+  return {
+    ...properties,
+    status: null,
+    rightsClassification: publishedStatus,
+  };
+}
+
 const inactiveStatusMarkers = [
   "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
   "expired", "forfeited", "non operational", "orphaned", "past producing",
@@ -320,12 +335,16 @@ function activityTooltip(properties: ActivityProperties) {
   const title = properties.name || properties.id;
   const holder = properties.holder || "Holder not published";
   const area = properties.areaHa == null ? "Area not published" : `${fmt(properties.areaHa)} ha`;
+  const rights = properties.rightsClassification
+    ? `<div><dt>Rights classification</dt><dd>${escapeHtml(properties.rightsClassification)}</dd></div>`
+    : "";
   return `<div class="watch-claim-preview">
     <span>${escapeHtml(properties.kindLabel)}</span>
     <strong>${escapeHtml(title)}</strong>
     <small>Record ${escapeHtml(properties.id)}</small>
     <dl>
       <div><dt>Status</dt><dd>${escapeHtml(readableStatus(properties.status))}</dd></div>
+      ${rights}
       <div><dt>${escapeHtml(recordedPartyLabel(properties.kind))}</dt><dd>${escapeHtml(holder)}</dd></div>
       <div><dt>Area</dt><dd>${escapeHtml(area)}</dd></div>
       <div><dt>Territory</dt><dd>${escapeHtml(territoryLabel(properties.treaty))}</dd></div>
@@ -450,6 +469,7 @@ export default function MiningPortal() {
   const [query, setQuery] = useState("");
   const [holderFilter, setHolderFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [rightsFilter, setRightsFilter] = useState("");
   const [commodityFilter, setCommodityFilter] = useState("");
   const [issueFrom, setIssueFrom] = useState("");
   const [issueTo, setIssueTo] = useState("");
@@ -501,14 +521,14 @@ export default function MiningPortal() {
         if (linked) {
           setSelected({
             ...linked,
-            properties: {
+            properties: normalizePublishedFields({
               ...linked.properties,
               sector: "minerals",
               sectorLabel: "Minerals",
               sourceUrl: mining.metadata.sourceUrl,
               sourceName: mining.metadata.source,
               lastUpdated: linked.properties.lastUpdated || mining.metadata.generatedAt,
-            },
+            }),
           });
         }
       }
@@ -528,14 +548,14 @@ export default function MiningPortal() {
       .filter(feature => isCurrentActivity(feature.properties))
       .map(feature => ({
         ...feature,
-        properties: {
+        properties: normalizePublishedFields({
           ...feature.properties,
           sector: "minerals" as Sector,
           sectorLabel: "Minerals",
           sourceUrl: miningDataset?.metadata.sourceUrl,
           sourceName: miningDataset?.metadata.source,
           lastUpdated: feature.properties.lastUpdated || miningDataset?.metadata.generatedAt,
-        },
+        }),
       }));
   }, [liveClaims, miningDataset]);
 
@@ -563,6 +583,7 @@ export default function MiningPortal() {
     return {
       holders: unique(activities.map(feature => feature.properties.holder)),
       statuses: unique(activities.map(feature => feature.properties.status)),
+      rights: unique(activities.map(feature => feature.properties.rightsClassification)),
       commodities: unique(activities.map(feature => feature.properties.commodity)),
     };
   }, [activities]);
@@ -575,6 +596,7 @@ export default function MiningPortal() {
       if (!activeMineralKinds.has(item.kind)) return false;
       if (holderFilter && item.holder !== holderFilter) return false;
       if (statusFilter && item.status !== statusFilter) return false;
+      if (rightsFilter && item.rightsClassification !== rightsFilter) return false;
       if (commodityFilter && item.commodity !== commodityFilter) return false;
       const issueYear = Number(item.issueDate?.slice(0, 4));
       if (issueFrom && (!issueYear || issueYear < Number(issueFrom))) return false;
@@ -586,13 +608,14 @@ export default function MiningPortal() {
         item.holder,
         item.commodity,
         item.status,
+        item.rightsClassification,
         item.treaty,
         item.location,
         item.responsibleAuthority,
         item.kindLabel,
       ].some(value => String(value ?? "").toLowerCase().includes(normalized));
     });
-  }, [activities, territory, allTerritoriesLabel, activeMineralKinds, query, holderFilter, statusFilter, commodityFilter, issueFrom, issueTo]);
+  }, [activities, territory, allTerritoriesLabel, activeMineralKinds, query, holderFilter, statusFilter, rightsFilter, commodityFilter, issueFrom, issueTo]);
 
   const listedRecords = useMemo(() => {
     const visible = filtered.slice(0, listLimit);
@@ -1050,7 +1073,16 @@ export default function MiningPortal() {
     setClaimOverview(null);
     setClaimViewportNote(null);
     setTerritory(`All ${provinces[nextProvince].name}`);
+    setActiveMineralKinds(new Set(mineralKinds));
+    setQuery("");
+    setHolderFilter("");
+    setStatusFilter("");
+    setRightsFilter("");
+    setCommodityFilter("");
+    setIssueFrom("");
+    setIssueTo("");
     setSelected(null);
+    setCopied(false);
     setListLimit(60);
   }
 
@@ -1089,6 +1121,7 @@ export default function MiningPortal() {
   function clearAdvancedFilters() {
     setHolderFilter("");
     setStatusFilter("");
+    setRightsFilter("");
     setCommodityFilter("");
     setIssueFrom("");
     setIssueTo("");
@@ -1258,8 +1291,8 @@ export default function MiningPortal() {
 
           <details className="watch-advanced-filters">
             <summary>
-              <span>Company, status and date</span>
-              <small>{[holderFilter, statusFilter, commodityFilter, issueFrom, issueTo].filter(Boolean).length || "More filters"}</small>
+              <span>Company, status, rights and date</span>
+              <small>{[holderFilter, statusFilter, rightsFilter, commodityFilter, issueFrom, issueTo].filter(Boolean).length || "More filters"}</small>
             </summary>
             <div>
               <label>
@@ -1276,6 +1309,13 @@ export default function MiningPortal() {
                   {filterOptions.statuses.map(status => <option key={status} value={status}>{readableStatus(status)}</option>)}
                 </select>
               </label>
+              {filterOptions.rights.length > 0 && <label>
+                <span>Rights classification</span>
+                <select value={rightsFilter} onChange={event => updateAdvancedFilter(() => setRightsFilter(event.target.value))}>
+                  <option value="">All published rights classifications</option>
+                  {filterOptions.rights.map(rights => <option key={rights} value={rights}>{rights}</option>)}
+                </select>
+              </label>}
               <label>
                 <span>Commodity</span>
                 <select value={commodityFilter} onChange={event => updateAdvancedFilter(() => setCommodityFilter(event.target.value))}>
@@ -1288,7 +1328,7 @@ export default function MiningPortal() {
                 <label><span>Issue year from</span><input inputMode="numeric" pattern="[0-9]*" value={issueFrom} onChange={event => updateAdvancedFilter(() => setIssueFrom(event.target.value.replace(/\D/g, "").slice(0, 4)))} placeholder="e.g. 2020" /></label>
                 <label><span>Issue year to</span><input inputMode="numeric" pattern="[0-9]*" value={issueTo} onChange={event => updateAdvancedFilter(() => setIssueTo(event.target.value.replace(/\D/g, "").slice(0, 4)))} placeholder="e.g. 2026" /></label>
               </div>
-              {[holderFilter, statusFilter, commodityFilter, issueFrom, issueTo].some(Boolean) && <button type="button" onClick={clearAdvancedFilters}>Clear additional filters</button>}
+              {[holderFilter, statusFilter, rightsFilter, commodityFilter, issueFrom, issueTo].some(Boolean) && <button type="button" onClick={clearAdvancedFilters}>Clear additional filters</button>}
             </div>
           </details>
 
@@ -1346,6 +1386,8 @@ export default function MiningPortal() {
             <dl>
               <div><dt>Province</dt><dd>{provinceConfig.name}</dd></div>
               <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Spatially inferred primary polygon match; other overlaps may exist</small></dd></div>
+              <div><dt>Published status</dt><dd>{readableStatus(selected.properties.status)}<small>Reproduced from the cited public source where available</small></dd></div>
+              {selected.properties.rightsClassification && <div><dt>Rights classification</dt><dd>{selected.properties.rightsClassification}<small>Classification published by the responsible government source</small></dd></div>}
               <div><dt>{recordedPartyLabel(selected.properties.kind)}</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Reproduced from the cited public source" : "Completeness limited"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
               {selected.properties.location && <div><dt>Published location</dt><dd>{selected.properties.location}</dd></div>}
