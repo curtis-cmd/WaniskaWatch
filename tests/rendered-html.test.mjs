@@ -31,7 +31,7 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   const html = await response.text();
   assert.match(html, /<title>Waniskâ Watch — Territory Watch<\/title>/i);
   assert.match(html, /waniska-watch-header\.png/i);
-  assert.match(html, /waniska-watch-icon\.png/i);
+  assert.match(html, /waniska-watch-favicon-v2\.png/i);
   assert.match(html, /waniska-watch-footer\.png/i);
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A free community resource from/i);
@@ -58,11 +58,12 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
 });
 
 test("keeps the Watch and Services branding wired to local assets", async () => {
-  const [portal, layout, packageJson, socialCard, headerLogo, footerLogo] = await Promise.all([
+  const [portal, layout, packageJson, socialCard, favicon, headerLogo, footerLogo] = await Promise.all([
     readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../public/og-territory-watch-v2.png", import.meta.url)),
+    readFile(new URL("../public/waniska-watch-favicon-v2.png", import.meta.url)),
     readFile(new URL("../public/waniska-watch-header.png", import.meta.url)),
     readFile(new URL("../public/waniska-watch-footer.png", import.meta.url)),
   ]);
@@ -78,10 +79,14 @@ test("keeps the Watch and Services branding wired to local assets", async () => 
   assert.match(layout, /https:\/\/app\.waniskaservices\.ca\/watch\/og-territory-watch-v2\.png/);
   assert.match(layout, /summary_large_image/);
   assert.match(layout, /Know what’s happening on the land\./);
+  assert.match(layout, /waniska-watch-favicon-v2\.png/);
   assert.match(packageJson, /"name": "waniska-watch"/);
   assert.equal(socialCard.subarray(1, 4).toString("ascii"), "PNG");
   assert.equal(socialCard.readUInt32BE(16), 1200);
   assert.equal(socialCard.readUInt32BE(20), 630);
+  assert.equal(favicon.subarray(1, 4).toString("ascii"), "PNG");
+  assert.equal(favicon.readUInt32BE(16), 512);
+  assert.equal(favicon.readUInt32BE(20), 512);
   for (const logo of [headerLogo, footerLogo]) {
     assert.equal(logo.subarray(1, 4).toString("ascii"), "PNG");
     assert.equal(logo.readUInt32BE(16), 1733);
@@ -117,6 +122,9 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /Rights classification/i);
   assert.match(portal, /setQuery\(""\)/i);
   assert.match(portal, /setRightsFilter\(""\)/i);
+  assert.match(portal, /TOTAL CURRENT RECORDS/i);
+  assert.match(portal, /loaded at this map view/i);
+  assert.match(portal, /mapPanel\.current\?\.scrollIntoView/i);
   assert.match(portal, /Issue year from/i);
   assert.match(portal, /\/data\/saskatchewan-mining\.json/);
   assert.match(portal, /\/data\/saskatchewan-territories\.json/);

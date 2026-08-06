@@ -233,6 +233,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-snapshot > div:first-child { border-left: 1px solid var(--watch-line); }
 .watch-snapshot span { color: var(--watch-muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
 .watch-snapshot strong { margin-top: 6px; font: 500 19px Georgia, serif; }
+.watch-record-snapshot small {
+  margin-top: 5px;
+  color: var(--watch-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
 .watch-snapshot > p { min-width: 220px; border-right: 0; color: #48645d; font-size: 12px; flex-direction: row; align-items: center; gap: 9px; }
 .watch-snapshot > p i { width: 9px; height: 9px; border-radius: 50%; background: #4b956f; box-shadow: 0 0 0 5px #e0eee5; }
 

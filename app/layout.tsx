@@ -9,9 +9,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "Know what’s happening on the land. Explore current public mining claims, projects and operations alongside carefully sourced territorial context.",
     icons: {
-      icon: [{ url: `${basePath}/waniska-watch-icon.png`, type: "image/png" }],
-      shortcut: `${basePath}/waniska-watch-icon.png`,
-      apple: `${basePath}/waniska-watch-icon.png`,
+      icon: [{ url: `${basePath}/waniska-watch-favicon-v2.png`, type: "image/png", sizes: "512x512" }],
+      shortcut: `${basePath}/waniska-watch-favicon-v2.png`,
+      apple: `${basePath}/waniska-watch-favicon-v2.png`,
     },
     openGraph: {
       title: "Waniskâ Watch — Territory Watch",

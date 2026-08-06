@@ -1,0 +1,121 @@
+name: Refresh public mining data
+
+on:
+  schedule:
+    - cron: "17 11 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: public-mining-data-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  refresh:
+    name: Refresh, audit and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    steps:
+      - name: Check out the current release
+        uses: actions/checkout@v4
+
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            scripts/canada-mining/requirements.txt
+            scripts/manitoba-mining/requirements.txt
+
+      - name: Install spatial data tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --target scripts/canada-mining/vendor -r scripts/canada-mining/requirements.txt
+          python -m pip install --target scripts/manitoba-mining/vendor -r scripts/manitoba-mining/requirements.txt
+
+      - name: Refresh Manitoba
+        env:
+          PYTHON_BIN: python
+        run: bash scripts/manitoba-mining/refresh.sh
+
+      - name: Refresh the other live jurisdictions
+        env:
+          PYTHON_BIN: python
+          PYTHONPATH: scripts/canada-mining/vendor
+        run: |
+          for jurisdiction in \
+            alberta \
+            british-columbia \
+            new-brunswick \
+            newfoundland-and-labrador \
+            northwest-territories \
+            nova-scotia \
+            nunavut \
+            ontario \
+            quebec \
+            saskatchewan \
+            yukon
+          do
+            bash scripts/canada-mining/refresh.sh "$jurisdiction"
+          done
+
+      - name: Audit the complete public dataset
+        env:
+          PYTHONPATH: scripts/canada-mining/vendor
+        run: python scripts/canada-mining/audit_public_datasets.py
+
+      - name: Prepare application tests
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Prepare Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Test the refreshed release
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+
+      - name: Publish a passing refresh
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "Government sources produced no public-data changes."
+            exit 0
+          fi
+          git config user.name "waniska-watch-data-bot"
+          git config user.email "info@waniskaservices.ca"
+          git add public/data
+          git commit -m "Refresh verified public mining records"
+          git push
+
+      - name: Resolve an earlier refresh alert
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          issue_number=$(gh issue list --state open --search 'Automated public-data refresh failed in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$issue_number" ]; then
+            gh issue close "$issue_number" --comment "The scheduled public-data refresh is passing again."
+          fi
+
+      - name: Open or update a refresh failure alert
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          issue_number=$(gh issue list --state open --search 'Automated public-data refresh failed in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$issue_number" ]; then
+            gh issue comment "$issue_number" --body "The latest scheduled refresh failed. Review the run before replacing the last verified public data: $run_url"
+          else
+            gh issue create --title "Automated public-data refresh failed" --assignee "${{ github.repository_owner }}" --body "Waniskâ Watch kept the last verified public data because the scheduled refresh did not pass. Review the failed run: $run_url"
+          fi

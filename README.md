@@ -27,3 +27,13 @@ The public map loads:
 
 See `docs/MANITOBA_MINING_DATABASE.md` and `docs/CANADA_MINING_DATABASE.md` for
 source methodology, refresh instructions and treaty-boundary cautions.
+
+## Refresh operations
+
+The public datasets are refreshed automatically every Monday through the
+`Refresh public mining data` workflow. The workflow rebuilds every live
+jurisdiction, runs the public audit and application tests, and publishes only a
+passing refresh. A failed run opens or updates a repository issue so the source
+failure can be reviewed before older verified data is replaced. Authorized
+maintainers can also start the workflow manually when a government source
+changes between scheduled runs.

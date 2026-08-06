@@ -449,6 +449,7 @@ function pointInTerritory(longitude: number, latitude: number, geometry: Geometr
 
 export default function MiningPortal() {
   const mapElement = useRef<HTMLDivElement>(null);
+  const mapPanel = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
   const activityLayer = useRef<LeafletGeoJSON | null>(null);
   const claimOverviewLayer = useRef<LeafletGeoJSON | null>(null);
@@ -687,6 +688,12 @@ export default function MiningPortal() {
       window.history.replaceState({}, "", nextUrl);
     }
     if (moveMap) frameFeature(feature);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
+      requestAnimationFrame(() => requestAnimationFrame(() => mapPanel.current?.scrollIntoView({
+        block: "start",
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      })));
+    }
   }, [frameFeature]);
 
   useEffect(() => {
@@ -1155,6 +1162,8 @@ export default function MiningPortal() {
   const publishedContact = selected ? contactFor(selected) : null;
   const identifiedProponents = miningDataset?.metadata.recordedHolderCount
     ?? new Set(filtered.map(feature => feature.properties.holder).filter(Boolean)).size;
+  const totalCurrentRecords = miningDataset?.metadata.databaseRecordCount ?? activities.length;
+  const loadedMapRecords = activities.length;
   const generatedAt = miningDataset?.metadata.generatedAt;
   const updated = formatDate(generatedAt, "Loading");
   const boundaryUpdated = formatDate(treatyDataset?.metadata.generatedAt, "Not available");
@@ -1243,7 +1252,11 @@ export default function MiningPortal() {
 
     <section className="watch-snapshot" aria-label="Current data coverage">
       <div><span>CURRENT PUBLIC DATA</span><strong>{updated}</strong></div>
-      <div><span>{isWaitingForViewportClaims ? "MAP RECORDS" : "VISIBLE RECORDS"}</span><strong>{isWaitingForViewportClaims ? "Zoom in" : filtered.length.toLocaleString("en-CA")}</strong></div>
+      <div className="watch-record-snapshot">
+        <span>TOTAL CURRENT RECORDS</span>
+        <strong>{totalCurrentRecords.toLocaleString("en-CA")}</strong>
+        <small>{loadedMapRecords.toLocaleString("en-CA")} loaded at this map view</small>
+      </div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
       <p><i /> Current activity only · no account required</p>
@@ -1359,7 +1372,7 @@ export default function MiningPortal() {
           </div>
         </aside>
 
-        <div className="territory-watch-map-wrap">
+        <div className="territory-watch-map-wrap" ref={mapPanel}>
           <p className="sr-only" id="map-description">The interactive map is paired with an accessible record list. Hover or tap a mining feature to identify it, then select it for full details. Treaty polygons are historic government-published geographic indexes and are not legal or consultation determinations.</p>
           <div ref={mapElement} className="territory-watch-map" role="region" aria-label={`Map of public ${provinceConfig.name} mining activity`} aria-describedby="map-description" />
           <div className="watch-map-legend" aria-label="Map legend">
