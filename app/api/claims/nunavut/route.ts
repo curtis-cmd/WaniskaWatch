@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unavailableJurisdictionResponse } from "../sourceVerification";
 
 const CLAIM_LAYER = "https://geo.sac-isc.gc.ca/geomatics/rest/services/Donnees_Ouvertes-Open_Data/Claim_minier_NU_Mineral_Claim/MapServer/0";
 const MAX_FEATURES = 2000;
@@ -10,6 +11,8 @@ function validNumber(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  const unavailable = unavailableJurisdictionResponse("nunavut");
+  if (unavailable) return unavailable;
   const west = validNumber(request.nextUrl.searchParams.get("west"));
   const south = validNumber(request.nextUrl.searchParams.get("south"));
   const east = validNumber(request.nextUrl.searchParams.get("east"));

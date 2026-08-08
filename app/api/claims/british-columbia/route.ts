@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Geometry } from "geojson";
+import { unavailableJurisdictionResponse } from "../sourceVerification";
 
 const SERVICE = "https://openmaps.gov.bc.ca/geo/pub/WHSE_MINERAL_TENURE.MTA_ACQUIRED_TENURE_SVW/ows";
 const TYPE_NAME = "pub:WHSE_MINERAL_TENURE.MTA_ACQUIRED_TENURE_SVW";
@@ -19,6 +20,8 @@ type SourceFeature = {
 };
 
 export async function GET(request: NextRequest) {
+  const unavailable = unavailableJurisdictionResponse("british-columbia");
+  if (unavailable) return unavailable;
   const west = validNumber(request.nextUrl.searchParams.get("west"));
   const south = validNumber(request.nextUrl.searchParams.get("south"));
   const east = validNumber(request.nextUrl.searchParams.get("east"));

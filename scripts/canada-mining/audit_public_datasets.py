@@ -55,7 +55,33 @@ def main() -> None:
     dataset_keys = ["manitoba", *PROVINCES.keys()]
     for key in dataset_keys:
         dataset_path = public_root / f"{key}-mining.json"
+        source_status = source_statuses.get(key) or {}
+        source_unavailable = source_status.get("state") == "source-unavailable"
         if not dataset_path.exists():
+            if source_unavailable:
+                audits.append(
+                    {
+                        "key": key,
+                        "jurisdiction": key.replace("-", " ").title(),
+                        "status": "source-unavailable",
+                        "published": False,
+                        "sourceAvailability": "source-unavailable",
+                        "sourceCheckedAt": source_status.get("checkedAt"),
+                        "lastVerified": source_status.get("lastVerified"),
+                        "availabilityMessage": source_status.get("message"),
+                        "generatedAt": None,
+                        "ageHours": None,
+                        "currentRecordCount": 0,
+                        "lastVerifiedRecordCount": source_status.get("lastVerifiedRecordCount"),
+                        "bundledFeatureCount": 0,
+                        "claimDelivery": "unpublished",
+                        "claimOverviewCellCount": None,
+                        "recordedHolderCount": None,
+                        "normalizedRecordCount": 0,
+                        "lineage": [],
+                        "issues": [],
+                    }
+                )
             continue
         payload = json.loads(dataset_path.read_text(encoding="utf-8"))
         metadata = payload.get("metadata") or {}
@@ -103,8 +129,6 @@ def main() -> None:
                     issues.append("claim overview exceeds the lightweight map budget")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
-        source_status = source_statuses.get(key) or {}
-        source_unavailable = source_status.get("state") == "source-unavailable"
         if age_hours > 48 and not source_unavailable:
             issues.append(f"snapshot is {age_hours:.1f} hours old")
 
@@ -146,6 +170,7 @@ def main() -> None:
                 "key": key,
                 "jurisdiction": metadata.get("province") or key.replace("-", " ").title(),
                 "status": audit_status,
+                "published": not source_unavailable,
                 "sourceAvailability": source_status.get("state", "verified"),
                 "sourceCheckedAt": source_status.get("checkedAt"),
                 "lastVerified": source_status.get("lastVerified") or metadata.get("generatedAt"),
@@ -174,9 +199,10 @@ def main() -> None:
         "metadata": {
             "auditedAt": audited_at.isoformat(),
             "result": audit_result,
-            "liveJurisdictionCount": len(audits),
+            "liveJurisdictionCount": sum(1 for item in audits if item.get("published")),
+            "unavailableJurisdictionCount": sum(1 for item in audits if not item.get("published")),
             "totalCurrentRecordCount": sum(int(item["currentRecordCount"] or 0) for item in audits),
-            "scope": "Current public mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts.",
+            "scope": "Currently published government-source mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts. Unavailable jurisdictions are documented but unpublished.",
         },
         "liveJurisdictions": audits,
         "pendingJurisdictions": PENDING_SOURCES,
@@ -185,7 +211,7 @@ def main() -> None:
     destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {destination}")
     for item in audits:
-        print(f"{item['jurisdiction']}: {item['status']} — {item['currentRecordCount']:,} current records")
+        print(f"{item['jurisdiction']}: {item['status']} — {item['currentRecordCount']:,} published current records")
     if has_blocking_issues:
         raise SystemExit(1)
 

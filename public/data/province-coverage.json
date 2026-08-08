@@ -24,24 +24,6 @@
       "claimOverview": "/data/british-columbia-claim-overview.json"
     },
     {
-      "key": "alberta",
-      "name": "Alberta",
-      "abbreviation": "AB",
-      "generatedAt": "2026-08-05T06:34:39.150971+00:00",
-      "recordCount": 90,
-      "mapFeatureCount": 90,
-      "counts": {
-        "claim": 33,
-        "operation": 45,
-        "exploration": 12
-      },
-      "recordedHolderCount": 0,
-      "territoryCount": 6,
-      "miningDataset": "/data/alberta-mining.json",
-      "territoryDataset": "/data/alberta-territories.json",
-      "claimDelivery": "included"
-    },
-    {
       "key": "new-brunswick",
       "name": "New Brunswick",
       "abbreviation": "NB",
@@ -131,42 +113,6 @@
       "claimOverview": "/data/nunavut-claim-overview.json"
     },
     {
-      "key": "northwest-territories",
-      "name": "Northwest Territories",
-      "abbreviation": "NT",
-      "generatedAt": "2026-08-05T07:47:13.401387+00:00",
-      "recordCount": 1955,
-      "mapFeatureCount": 1955,
-      "counts": {
-        "claim": 935,
-        "operation": 941,
-        "exploration": 79
-      },
-      "recordedHolderCount": 116,
-      "territoryCount": 10,
-      "miningDataset": "/data/northwest-territories-mining.json",
-      "territoryDataset": "/data/northwest-territories-territories.json",
-      "claimDelivery": "included"
-    },
-    {
-      "key": "quebec",
-      "name": "Quebec",
-      "abbreviation": "QC",
-      "generatedAt": "2026-08-05T07:53:09.470537+00:00",
-      "recordCount": 221348,
-      "mapFeatureCount": 507,
-      "counts": {
-        "claim": 220841,
-        "operation": 507
-      },
-      "recordedHolderCount": 1353,
-      "territoryCount": 5,
-      "miningDataset": "/data/quebec-mining.json",
-      "territoryDataset": "/data/quebec-territories.json",
-      "claimDelivery": "viewport-static",
-      "claimOverview": "/data/quebec-claim-overview.json"
-    },
-    {
       "key": "saskatchewan",
       "name": "Saskatchewan",
       "abbreviation": "SK",
@@ -183,25 +129,6 @@
       "territoryDataset": "/data/saskatchewan-territories.json",
       "claimDelivery": "included",
       "claimOverview": null
-    },
-    {
-      "key": "ontario",
-      "name": "Ontario",
-      "abbreviation": "ON",
-      "generatedAt": "2026-08-05T06:36:52.154615+00:00",
-      "recordCount": 395244,
-      "mapFeatureCount": 4701,
-      "counts": {
-        "claim": 390543,
-        "operation": 4031,
-        "exploration": 670
-      },
-      "recordedHolderCount": 1660,
-      "territoryCount": 7,
-      "miningDataset": "/data/ontario-mining.json",
-      "territoryDataset": "/data/ontario-territories.json",
-      "claimDelivery": "viewport-live",
-      "claimOverview": "/data/ontario-claim-overview.json"
     }
   ]
 }

@@ -1,13 +1,14 @@
 {
   "metadata": {
-    "updatedAt": "2026-08-08T06:53:05.441266+00:00",
-    "note": "Source availability is tracked separately from record status. A source outage never replaces the last verified jurisdiction snapshot."
+    "updatedAt": "2026-08-08T19:13:33.266537+00:00",
+    "note": "Only jurisdictions verified during the latest successful refresh are published. An unavailable source remains documented but its records are temporarily unpublished."
   },
   "jurisdictions": {
     "alberta": {
       "state": "source-unavailable",
-      "checkedAt": "2026-08-08T05:43:59.554825+00:00",
+      "checkedAt": "2026-08-08T19:13:33.064240+00:00",
       "lastVerified": "2026-08-05T06:34:39.150971+00:00",
+      "lastVerifiedRecordCount": 90,
       "message": "Source temporarily unavailable—last verified August 5, 2026.",
       "sourceUrl": "https://gis.energy.gov.ab.ca/arcgis/rest/services/Geoview/Mineral_Agreements_Overview_Ext_PROD/MapServer"
     },
@@ -41,8 +42,9 @@
     },
     "northwest-territories": {
       "state": "source-unavailable",
-      "checkedAt": "2026-08-08T05:57:47.973116+00:00",
+      "checkedAt": "2026-08-08T19:13:33.122159+00:00",
       "lastVerified": "2026-08-05T07:47:13.401387+00:00",
+      "lastVerifiedRecordCount": 1955,
       "message": "Source temporarily unavailable—last verified August 5, 2026.",
       "sourceUrl": "https://www.geomatics.gov.nt.ca/en/services/web-mapping-applications/mining-recorders-office-mineral-tenure-web-map"
     },
@@ -62,15 +64,17 @@
     },
     "ontario": {
       "state": "source-unavailable",
-      "checkedAt": "2026-08-08T06:35:37.160694+00:00",
+      "checkedAt": "2026-08-08T19:13:33.188801+00:00",
       "lastVerified": "2026-08-05T06:36:52.154615+00:00",
+      "lastVerifiedRecordCount": 395244,
       "message": "Source temporarily unavailable—last verified August 5, 2026.",
       "sourceUrl": "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS"
     },
     "quebec": {
       "state": "source-unavailable",
-      "checkedAt": "2026-08-08T06:49:20.483223+00:00",
+      "checkedAt": "2026-08-08T19:13:33.266537+00:00",
       "lastVerified": "2026-08-05T07:53:09.470537+00:00",
+      "lastVerifiedRecordCount": 221348,
       "message": "Source temporarily unavailable—last verified August 5, 2026.",
       "sourceUrl": "https://www.quebec.ca/agriculture-environnement-et-ressources-naturelles/mines/donnees-cartes-minieres"
     },

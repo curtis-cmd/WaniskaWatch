@@ -501,6 +501,45 @@ export default function MiningPortal() {
 
   useEffect(() => {
     let active = true;
+    fetch(appPath("/data/jurisdiction-status.json"))
+      .then(response => {
+        if (!response.ok) throw new Error("Jurisdiction verification status unavailable");
+        return response.json();
+      })
+      .then(statuses => {
+        if (active) setJurisdictionStatuses(statuses);
+      })
+      .catch(() => {
+        if (active) {
+          setJurisdictionStatuses(null);
+          setDataStatus("error");
+        }
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!jurisdictionStatuses) return;
+    if (jurisdictionStatuses.jurisdictions[province]?.state === "verified") return;
+    const fallback = (Object.keys(provinces) as ProvinceKey[]).find(key => (
+      jurisdictionStatuses.jurisdictions[key]?.state === "verified"
+    ));
+    if (fallback) changeProvince(fallback);
+  }, [jurisdictionStatuses, province]);
+
+  useEffect(() => {
+    if (!jurisdictionStatuses) return;
+    if (jurisdictionStatuses.jurisdictions[province]?.state !== "verified") {
+      setMiningDataset(null);
+      setTreatyDataset(null);
+      setContacts(null);
+      setClaimOverview(null);
+      setLiveClaims([]);
+      setSelected(null);
+      setDataStatus("loading");
+      return;
+    }
+    let active = true;
     Promise.all([
       fetch(appPath(provinces[province].miningPath)).then(response => {
         if (!response.ok) throw new Error("Mining dataset unavailable");
@@ -519,16 +558,12 @@ export default function MiningPortal() {
           response.ok ? response.json() : null
         )).catch(() => null)
         : Promise.resolve(null),
-      fetch(appPath("/data/jurisdiction-status.json")).then(response => (
-        response.ok ? response.json() : null
-      )).catch(() => null),
-    ]).then(([mining, treaties, directory, overview, sourceStatuses]) => {
+    ]).then(([mining, treaties, directory, overview]) => {
       if (!active) return;
       setMiningDataset(mining);
       setTreatyDataset(treaties);
       setContacts(directory);
       setClaimOverview(overview);
-      setJurisdictionStatuses(sourceStatuses);
       setDataStatus("ready");
       if (typeof window !== "undefined") {
         const recordId = new URLSearchParams(window.location.search).get("record");
@@ -558,7 +593,7 @@ export default function MiningPortal() {
       setDataStatus("error");
     });
     return () => { active = false; };
-  }, [province]);
+  }, [jurisdictionStatuses, province]);
 
   const activities = useMemo<ActivityFeature[]>(() => {
     return [...(miningDataset?.features || []), ...liveClaims]
@@ -1182,8 +1217,16 @@ export default function MiningPortal() {
   const loadedMapRecords = activities.length;
   const generatedAt = miningDataset?.metadata.generatedAt;
   const jurisdictionSourceStatus = jurisdictionStatuses?.jurisdictions[province];
-  const sourceUnavailable = jurisdictionSourceStatus?.state === "source-unavailable";
+  const publishedProvinceKeys = jurisdictionStatuses
+    ? (Object.keys(provinces) as ProvinceKey[]).filter(key => (
+      jurisdictionStatuses.jurisdictions[key]?.state === "verified"
+    ))
+    : [province];
   const updated = formatDate(generatedAt, "Loading");
+  const selectedLastVerified = formatDate(
+    jurisdictionSourceStatus?.lastVerified || selected?.properties.lastUpdated || generatedAt,
+    "Not available",
+  );
   const boundaryUpdated = formatDate(treatyDataset?.metadata.generatedAt, "Not available");
   const selectedTerritoryMeta = territoryMeta.get(territory);
   const usesViewportClaims = ["ontario", "yukon", "nunavut", "british-columbia", "quebec"].includes(province);
@@ -1231,19 +1274,14 @@ export default function MiningPortal() {
             onChange={event => changeProvince(event.target.value as ProvinceKey)}
             aria-describedby="coverage-note"
           >
-            {Object.entries(provinces).sort(([, left], [, right]) => left.name.localeCompare(right.name)).map(([key, item]) => (
-              <option key={key} value={key}>{item.name}</option>
+            {publishedProvinceKeys.sort((left, right) => provinces[left].name.localeCompare(provinces[right].name)).map(key => (
+              <option key={key} value={key}>{provinces[key].name}</option>
             ))}
-            <optgroup label="Coverage confirmation required">
-              <option disabled>Prince Edward Island</option>
-            </optgroup>
           </select>
         </label>
         <p id="coverage-note">
-          <strong>{sourceUnavailable ? `${provinceConfig.name} is showing its last verified records.` : `${provinceConfig.name} coverage is live.`}</strong>{" "}
-          {sourceUnavailable
-            ? jurisdictionSourceStatus.message
-            : "Records are kept in province-specific source pipelines so differences between registries remain visible and auditable."}
+          <strong>{provinceConfig.name} coverage is verified and live.</strong>{" "}
+          Published records were checked against the cited government source on the date shown. Jurisdictions that cannot be verified are temporarily removed.
         </p>
         <fieldset>
           <legend>Choose a published geographic view</legend>
@@ -1269,7 +1307,7 @@ export default function MiningPortal() {
             <button type="button" onClick={beginTerritoryWatch}>Search</button>
           </div>
         </div>
-        <p className="watch-future-entry"><b>Canada expansion:</b> twelve jurisdictions now use verified government-source pipelines. Prince Edward Island remains pending until the province confirms its current mineral-right records and official map coverage.</p>
+        <p className="watch-future-entry"><b>Current publication:</b> {publishedProvinceKeys.length} jurisdictions are available from government sources verified during the latest successful refresh. Unavailable jurisdictions return only after their source can be verified again.</p>
       </div>
     </section>
 
@@ -1282,14 +1320,8 @@ export default function MiningPortal() {
       </div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
-      <p className={sourceUnavailable ? "source-unavailable" : ""}><i /> {sourceUnavailable ? "Official source temporarily unavailable · last verified records retained" : "Current activity only · no account required"}</p>
+      <p><i /> Verified government-source records · current activity only · no account required</p>
     </section>
-
-    {sourceUnavailable && <aside className="watch-source-alert" role="status" aria-label={`${provinceConfig.name} source availability`}>
-      <strong>{jurisdictionSourceStatus.message}</strong>
-      <span>Waniskâ Watch has retained the last verified {provinceConfig.name} snapshot and has not published a partial or unverified replacement. Confirm time-sensitive decisions with the responsible authority.</span>
-      {jurisdictionSourceStatus.sourceUrl && <a href={jurisdictionSourceStatus.sourceUrl} target="_blank" rel="noreferrer">Check the official source ↗</a>}
-    </aside>}
 
     <section className="territory-watch-section" id="territory-watch" aria-labelledby="territory-watch-title">
       <div className="territory-watch-heading">
@@ -1439,8 +1471,13 @@ export default function MiningPortal() {
               <div><dt>Expiry date</dt><dd>{formatDate(selected.properties.expiryDate)}</dd></div>
               <div><dt>Published coordinates</dt><dd>{selected.properties.latitude.toFixed(4)}, {selected.properties.longitude.toFixed(4)}<small>{selected.properties.locationAccuracy || "Feature geometry; field conditions not verified"}</small></dd></div>
               <div><dt>Official source</dt><dd>{selected.properties.sourceName || miningDataset?.metadata.source || "Government public record"}</dd></div>
-              <div><dt>Last verified</dt><dd>{formatDate(selected.properties.lastUpdated || miningDataset?.metadata.generatedAt)}</dd></div>
+              <div><dt>Last verified</dt><dd>{selectedLastVerified}<small>Checked against the cited public government source</small></dd></div>
             </dl>
+
+            <aside className="watch-record-verification" aria-label="Record verification and non-reliance notice">
+              <strong>This record was last verified against the cited government source on {selectedLastVerified}.</strong>
+              <span>This record reproduces publicly available information for identification and research only. Government information may change, be delayed, incomplete or inaccurate. Verify it directly with the responsible authority before acting and do not rely on Waniskâ Watch for legal, regulatory, consultation, investment or land-use decisions. To the extent permitted by law, Waniskâ Services is not responsible for decisions, losses or damages arising from reliance on this record.</span>
+            </aside>
 
             <section className="watch-public-contact">
               <span>PUBLIC PROPONENT CONTACT</span>
@@ -1521,6 +1558,7 @@ export default function MiningPortal() {
         <h2 id="legal-title">Public and third-party information</h2>
       </div>
       <div className="watch-legal-notice">
+        <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Waniskâ Watch temporarily removes a jurisdiction when its government source cannot be verified and restores it only after a successful source refresh and audit.</p>
         <p>Waniskâ Watch compiles and continually updates its database using publicly available government records and other third-party sources. Despite reasonable efforts to keep the database current, records, maps, boundaries, contacts and links may from time to time be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
         <p>Company and individual names are reproduced as recorded in cited public sources for identification and research. Inclusion does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity beyond the status shown. Records may change and must be verified with the responsible authority.</p>
         <p><strong>The information must be independently verified and must not be relied upon.</strong> Before acting, confirm the information with the responsible government registry and the affected Nation, community, rights holder, lands office or consultation office, as appropriate.</p>

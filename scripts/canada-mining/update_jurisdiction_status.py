@@ -27,14 +27,29 @@ def main() -> None:
         if status_path.exists()
         else {"metadata": {}, "jurisdictions": {}}
     )
-    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    dataset = (
+        json.loads(dataset_path.read_text(encoding="utf-8"))
+        if dataset_path.exists()
+        else {}
+    )
     metadata = dataset.get("metadata") or {}
-    last_verified = metadata.get("generatedAt")
+    previous = payload.setdefault("jurisdictions", {}).get(args.jurisdiction) or {}
+    last_verified = metadata.get("generatedAt") or previous.get("lastVerified")
+    last_verified_record_count = (
+        metadata.get("databaseRecordCount", metadata.get("featureCount"))
+        if metadata
+        else previous.get("lastVerifiedRecordCount")
+    )
     jurisdiction_name = metadata.get("province") or args.jurisdiction.replace("-", " ").title()
+
+    if args.state == "verified" and not metadata:
+        raise SystemExit(f"Verified dataset is missing for {args.jurisdiction}")
+    if not last_verified:
+        raise SystemExit(f"No last-verified date is available for {args.jurisdiction}")
 
     payload["metadata"] = {
         "updatedAt": now,
-        "note": "Source availability is tracked separately from record status. A source outage never replaces the last verified jurisdiction snapshot.",
+        "note": "Only jurisdictions verified during the latest successful refresh are published. An unavailable source remains documented but its records are temporarily unpublished.",
     }
     jurisdictions = payload.setdefault("jurisdictions", {})
     if args.state == "verified":
@@ -42,15 +57,16 @@ def main() -> None:
             "state": "verified",
             "checkedAt": now,
             "lastVerified": last_verified,
+            "lastVerifiedRecordCount": last_verified_record_count,
             "message": f"{jurisdiction_name} source refresh verified.",
             "sourceUrl": args.source_url or metadata.get("sourceUrl"),
         }
     else:
-        previous = jurisdictions.get(args.jurisdiction) or {}
         jurisdictions[args.jurisdiction] = {
             "state": "source-unavailable",
             "checkedAt": now,
             "lastVerified": previous.get("lastVerified") or last_verified,
+            "lastVerifiedRecordCount": previous.get("lastVerifiedRecordCount") or last_verified_record_count,
             "message": f"Source temporarily unavailable—last verified {datetime.fromisoformat(str(previous.get('lastVerified') or last_verified).replace('Z', '+00:00')).strftime('%B %-d, %Y')}.",
             "sourceUrl": args.source_url or previous.get("sourceUrl") or metadata.get("sourceUrl"),
         }

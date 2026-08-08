@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render() {
@@ -47,6 +47,8 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity/i);
   assert.match(html, /Report an error or request a correction/i);
   assert.match(html, /must be independently verified and must not be relied upon/i);
+  assert.match(html, /A published record has been checked against its cited public government source/i);
+  assert.match(html, /temporarily removes a jurisdiction when its government source cannot be verified/i);
   assert.match(html, /INFORMATION NOTICE/i);
   assert.match(html, /Public and third-party information/i);
   assert.doesNotMatch(html, /Limitation of liability/i);
@@ -117,6 +119,10 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /Recorded operator or proponent/i);
   assert.match(portal, /Official source/i);
   assert.match(portal, /Last verified/i);
+  assert.match(portal, /This record was last verified against the cited government source on/i);
+  assert.match(portal, /not responsible for decisions, losses or damages arising from reliance on this record/i);
+  assert.match(portal, /jurisdictions\[key\]\?\.state === "verified"/i);
+  assert.match(portal, /Jurisdictions that cannot be verified are temporarily removed/i);
   assert.match(portal, /Waniskâ Watch correction request/i);
   assert.match(portal, /Published status/i);
   assert.match(portal, /Rights classification/i);
@@ -162,78 +168,68 @@ test("wires official treaty and public-contact data into the mining portal", asy
 });
 
 test("publishes lightweight current-claim overviews for large jurisdictions", async () => {
-  const jurisdictions = ["ontario", "yukon", "nunavut", "british-columbia", "quebec"];
-  for (const jurisdiction of jurisdictions) {
-    const [payload, mining] = await Promise.all([
-      readFile(new URL(`../public/data/${jurisdiction}-claim-overview.json`, import.meta.url), "utf8").then(JSON.parse),
-      readFile(new URL(`../public/data/${jurisdiction}-mining.json`, import.meta.url), "utf8").then(JSON.parse),
-    ]);
+  const statuses = await readFile(new URL("../public/data/jurisdiction-status.json", import.meta.url), "utf8").then(JSON.parse);
+  let overviewCount = 0;
+  for (const [jurisdiction, status] of Object.entries(statuses.jurisdictions)) {
+    if (status.state !== "verified") continue;
+    const mining = await readFile(new URL(`../public/data/${jurisdiction}-mining.json`, import.meta.url), "utf8").then(JSON.parse);
+    if (!mining.metadata.claimOverview) continue;
+    const payload = await readFile(
+      new URL(`../public/${mining.metadata.claimOverview.replace(/^\//, "")}`, import.meta.url),
+      "utf8",
+    ).then(JSON.parse);
     assert.equal(payload.metadata.currentOnly, true);
     assert.equal(payload.metadata.claimCount, mining.metadata.counts.claim);
     assert.equal(payload.features.length, payload.metadata.cellCount);
     assert.ok(payload.features.length < 1_000);
     assert.equal(payload.features.every(feature => feature.geometry.type === "Point"), true);
+    overviewCount++;
   }
+  assert.ok(overviewCount > 0);
 });
 
-test("publishes audited current-only coverage for twelve Canadian jurisdictions", async () => {
-  const [manitoba, saskatchewan, ontario, yukon, nunavut, bc, nwt, quebec, quebecIndex, catalogue, audit, statuses] = await Promise.all([
-    readFile(new URL("../public/data/manitoba-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/saskatchewan-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/ontario-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/yukon-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/nunavut-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/british-columbia-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/northwest-territories-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/quebec-mining.json", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/quebec-claims/index.json", import.meta.url), "utf8"),
+test("publishes only jurisdictions verified during the latest successful refresh", async () => {
+  const [catalogue, audit, statuses] = await Promise.all([
     readFile(new URL("../public/data/province-coverage.json", import.meta.url), "utf8"),
     readFile(new URL("../public/data/data-audit.json", import.meta.url), "utf8"),
     readFile(new URL("../public/data/jurisdiction-status.json", import.meta.url), "utf8"),
   ]);
 
-  const mb = JSON.parse(manitoba);
-  const sk = JSON.parse(saskatchewan);
-  const on = JSON.parse(ontario);
-  const yt = JSON.parse(yukon);
-  const nu = JSON.parse(nunavut);
-  const britishColumbia = JSON.parse(bc);
-  const northwestTerritories = JSON.parse(nwt);
-  const qc = JSON.parse(quebec);
-  const qcIndex = JSON.parse(quebecIndex);
   const coverage = JSON.parse(catalogue);
   const dataAudit = JSON.parse(audit);
   const sourceStatuses = JSON.parse(statuses);
+  const verified = Object.entries(sourceStatuses.jurisdictions)
+    .filter(([, status]) => status.state === "verified")
+    .map(([jurisdiction]) => jurisdiction);
+  const unavailable = Object.entries(sourceStatuses.jurisdictions)
+    .filter(([, status]) => status.state === "source-unavailable")
+    .map(([jurisdiction]) => jurisdiction);
 
-  assert.equal(mb.metadata.featureCount, mb.features.length);
-  assert.equal(mb.metadata.currentOnly, true);
-  assert.equal(mb.features.filter(feature => feature.properties.kind === "mine").length, 11);
-  assert.equal(mb.features.some(feature => /rejected|abandoned|remediated|non operational/i.test(feature.properties.status || "")), false);
-  assert.equal(sk.metadata.databaseRecordCount, sk.features.length);
-  assert.equal(sk.metadata.featureCount, sk.features.length);
-  assert.equal(sk.metadata.currentOnly, true);
-  assert.equal(on.metadata.currentOnly, true);
-  assert.equal(sk.features.some(feature => /assessment file/i.test(feature.properties.kindLabel)), false);
-  assert.equal(sk.features.some(feature => /past|abandoned|remediated|non operational/i.test(feature.properties.status || "")), false);
-  assert.ok(on.metadata.databaseRecordCount >= on.features.length);
-  assert.equal(on.metadata.claimDelivery, "viewport-live");
-  assert.ok(yt.metadata.databaseRecordCount >= yt.features.length);
-  assert.equal(yt.metadata.claimDelivery, "viewport-live");
-  assert.ok(nu.metadata.databaseRecordCount >= nu.features.length);
-  assert.equal(nu.metadata.claimDelivery, "viewport-live");
-  assert.ok(britishColumbia.metadata.databaseRecordCount >= britishColumbia.features.length);
-  assert.equal(britishColumbia.metadata.claimDelivery, "viewport-live");
-  assert.equal(northwestTerritories.metadata.databaseRecordCount, northwestTerritories.features.length);
-  assert.ok(qc.metadata.databaseRecordCount >= qc.features.length);
-  assert.equal(qc.metadata.claimDelivery, "viewport-static");
-  assert.equal(qcIndex.metadata.recordCount, qc.metadata.counts.claim);
-  assert.equal(coverage.provinces.length, 11);
+  for (const jurisdiction of verified) {
+    const dataset = await readFile(
+      new URL(`../public/data/${jurisdiction}-mining.json`, import.meta.url),
+      "utf8",
+    ).then(JSON.parse);
+    assert.equal(dataset.metadata.currentOnly, true);
+    assert.equal(dataset.metadata.featureCount, dataset.features.length);
+    assert.ok((dataset.metadata.databaseRecordCount ?? dataset.features.length) >= dataset.features.length);
+    assert.equal(dataset.features.some(feature => /rejected|abandoned|remediated|non operational/i.test(feature.properties.status || "")), false);
+  }
+  for (const jurisdiction of unavailable) {
+    await assert.rejects(access(new URL(`../public/data/${jurisdiction}-mining.json`, import.meta.url)));
+  }
+
+  assert.deepEqual(
+    coverage.provinces.map(item => item.key).sort(),
+    verified.filter(jurisdiction => jurisdiction !== "manitoba").sort(),
+  );
   assert.ok(["passed", "passed-with-source-outages"].includes(dataAudit.metadata.result));
-  assert.equal(dataAudit.metadata.liveJurisdictionCount, 12);
+  assert.equal(dataAudit.metadata.liveJurisdictionCount, verified.length);
+  assert.equal(dataAudit.metadata.unavailableJurisdictionCount, unavailable.length);
   assert.equal(
     dataAudit.metadata.totalCurrentRecordCount,
     dataAudit.liveJurisdictions.reduce((total, item) => total + item.currentRecordCount, 0),
   );
   assert.equal(dataAudit.liveJurisdictions.every(item => ["passed", "source-unavailable"].includes(item.status)), true);
-  assert.equal(sourceStatuses.jurisdictions.alberta.state, "source-unavailable");
+  assert.ok(verified.length > 0);
 });

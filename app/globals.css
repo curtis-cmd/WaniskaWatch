@@ -453,6 +453,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-record-detail dt { color: var(--watch-muted); }
 .watch-record-detail dd { margin: 0; text-align: right; font-weight: 700; }
 .watch-record-detail dd small { display: block; margin-top: 4px; color: var(--watch-muted); font-weight: 450; line-height: 1.35; }
+.watch-record-verification {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #d3c4a5;
+  border-left: 4px solid var(--watch-gold);
+  background: #fff8e9;
+  color: #3c2c16;
+}
+.watch-record-verification strong,
+.watch-record-verification span { display: block; }
+.watch-record-verification strong { font-size: 12px; line-height: 1.45; }
+.watch-record-verification span { margin-top: 8px; color: #625a49; font-size: 11px; line-height: 1.55; }
 .watch-public-contact { margin-top: 15px; padding: 14px; background: #eef3ed; border-left: 3px solid var(--watch-moss); }
 .watch-public-contact > span, .watch-public-contact > strong, .watch-public-contact > small { display: block; }
 .watch-public-contact > span { color: var(--watch-muted); font-size: 10px; font-weight: 800; letter-spacing: .1em; }

@@ -77,6 +77,7 @@ jobs:
             git clean -fdx -- "data/${jurisdiction}-mining" || true
             git clean -fd -- "public/data/${jurisdiction}-claims" || true
             python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" source-unavailable
+            python scripts/canada-mining/unpublish_jurisdiction.py "$jurisdiction"
             outages+=("$jurisdiction")
           done
           outage_list=$(IFS=,; echo "${outages[*]}")

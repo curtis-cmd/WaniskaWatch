@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unavailableJurisdictionResponse } from "../sourceVerification";
 
 const CLAIM_LAYERS = [
   { id: 11, label: "Placer claim" },
@@ -14,6 +15,8 @@ function validNumber(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  const unavailable = unavailableJurisdictionResponse("yukon");
+  if (unavailable) return unavailable;
   const west = validNumber(request.nextUrl.searchParams.get("west"));
   const south = validNumber(request.nextUrl.searchParams.get("south"));
   const east = validNumber(request.nextUrl.searchParams.get("east"));

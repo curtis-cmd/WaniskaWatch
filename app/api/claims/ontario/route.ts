@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unavailableJurisdictionResponse } from "../sourceVerification";
 
 const CLAIM_LAYER =
   "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS/mlas_op/MapServer/1";
@@ -11,6 +12,8 @@ function validNumber(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  const unavailable = unavailableJurisdictionResponse("ontario");
+  if (unavailable) return unavailable;
   const west = validNumber(request.nextUrl.searchParams.get("west"));
   const south = validNumber(request.nextUrl.searchParams.get("south"));
   const east = validNumber(request.nextUrl.searchParams.get("east"));
