@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "updatedAt": "2026-08-08T05:10:00Z",
+    "note": "Source availability is tracked separately from record status. A source outage never replaces the last verified jurisdiction snapshot."
+  },
+  "jurisdictions": {
+    "alberta": {
+      "state": "source-unavailable",
+      "checkedAt": "2026-08-08T05:10:00Z",
+      "lastVerified": "2026-08-05T06:34:39.150971+00:00",
+      "message": "Source temporarily unavailable—last verified August 5, 2026.",
+      "sourceUrl": "https://gis.energy.gov.ab.ca/arcgis/rest/services/Geoview/Mineral_Agreements_Overview_Ext_PROD/MapServer"
+    }
+  }
+}

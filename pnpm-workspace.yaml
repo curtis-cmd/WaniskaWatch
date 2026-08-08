@@ -7,6 +7,9 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 
+overrides:
+  nanoid: 3.3.17
+
 minimumReleaseAgeExclude:
   - '@cloudflare/vite-plugin@1.51.0'
   - miniflare@5.20260801.0-alpha

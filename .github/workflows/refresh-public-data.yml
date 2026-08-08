@@ -38,17 +38,15 @@ jobs:
           python -m pip install --target scripts/canada-mining/vendor -r scripts/canada-mining/requirements.txt
           python -m pip install --target scripts/manitoba-mining/vendor -r scripts/manitoba-mining/requirements.txt
 
-      - name: Refresh Manitoba
-        env:
-          PYTHON_BIN: python
-        run: bash scripts/manitoba-mining/refresh.sh
-
-      - name: Refresh the other live jurisdictions
+      - name: Refresh each jurisdiction independently
+        id: refresh
         env:
           PYTHON_BIN: python
           PYTHONPATH: scripts/canada-mining/vendor
         run: |
+          outages=()
           for jurisdiction in \
+            manitoba \
             alberta \
             british-columbia \
             new-brunswick \
@@ -61,8 +59,28 @@ jobs:
             saskatchewan \
             yukon
           do
-            bash scripts/canada-mining/refresh.sh "$jurisdiction"
+            echo "Refreshing $jurisdiction"
+            if [ "$jurisdiction" = "manitoba" ]; then
+              refresh_command=(bash scripts/manitoba-mining/refresh.sh)
+            else
+              refresh_command=(bash scripts/canada-mining/refresh.sh "$jurisdiction")
+            fi
+
+            if "${refresh_command[@]}"; then
+              python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" verified
+              continue
+            fi
+
+            echo "Official source unavailable for $jurisdiction; restoring the last verified snapshot."
+            git restore --source=HEAD --worktree --staged \
+              "data/${jurisdiction}-mining" \
+              ":(glob)public/data/${jurisdiction}-**" || true
+            git clean -fd -- "data/${jurisdiction}-mining" "public/data/${jurisdiction}-claims" || true
+            python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" source-unavailable
+            outages+=("$jurisdiction")
           done
+          outage_list=$(IFS=,; echo "${outages[*]}")
+          echo "outages=$outage_list" >> "$GITHUB_OUTPUT"
 
       - name: Audit the complete public dataset
         env:
@@ -98,13 +116,28 @@ jobs:
           git push
 
       - name: Resolve an earlier refresh alert
-        if: success()
+        if: success() && steps.refresh.outputs.outages == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           issue_number=$(gh issue list --state open --search 'Automated public-data refresh failed in:title' --json number --jq '.[0].number // empty')
           if [ -n "$issue_number" ]; then
             gh issue close "$issue_number" --comment "The scheduled public-data refresh is passing again."
+          fi
+
+      - name: Open or update a source outage alert
+        if: success() && steps.refresh.outputs.outages != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTAGES: ${{ steps.refresh.outputs.outages }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          issue_number=$(gh issue list --state open --search 'Public mining source temporarily unavailable in:title' --json number --jq '.[0].number // empty')
+          message="The verified refresh completed for available jurisdictions. These government sources were unavailable, so Waniskâ Watch retained and visibly labelled their last verified snapshots: $OUTAGES. Review: $run_url"
+          if [ -n "$issue_number" ]; then
+            gh issue comment "$issue_number" --body "$message"
+          else
+            gh issue create --title "Public mining source temporarily unavailable" --assignee "${{ github.repository_owner }}" --body "$message"
           fi
 
       - name: Open or update a refresh failure alert

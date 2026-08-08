@@ -104,6 +104,17 @@ type ContactDirectory = {
   metadata: { updatedAt: string; note: string };
   contacts: Array<ContactInfo & { match: string }>;
 };
+type JurisdictionSourceStatus = {
+  state: "verified" | "source-unavailable";
+  checkedAt: string;
+  lastVerified: string;
+  message: string;
+  sourceUrl?: string;
+};
+type JurisdictionStatusDirectory = {
+  metadata: { updatedAt: string; note: string };
+  jurisdictions: Partial<Record<ProvinceKey, JurisdictionSourceStatus>>;
+};
 type ActivityMapLayer = LeafletLayer & {
   feature?: ActivityFeature;
   setStyle?: (style: PathOptions) => void;
@@ -464,6 +475,7 @@ export default function MiningPortal() {
   const [claimOverview, setClaimOverview] = useState<ClaimOverviewDataset | null>(null);
   const [claimViewportNote, setClaimViewportNote] = useState<string | null>(null);
   const [contacts, setContacts] = useState<ContactDirectory | null>(null);
+  const [jurisdictionStatuses, setJurisdictionStatuses] = useState<JurisdictionStatusDirectory | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus>("loading");
   const [territory, setTerritory] = useState("All Manitoba");
   const [activeMineralKinds, setActiveMineralKinds] = useState<Set<ActivityKind>>(new Set(mineralKinds));
@@ -507,12 +519,16 @@ export default function MiningPortal() {
           response.ok ? response.json() : null
         )).catch(() => null)
         : Promise.resolve(null),
-    ]).then(([mining, treaties, directory, overview]) => {
+      fetch(appPath("/data/jurisdiction-status.json")).then(response => (
+        response.ok ? response.json() : null
+      )).catch(() => null),
+    ]).then(([mining, treaties, directory, overview, sourceStatuses]) => {
       if (!active) return;
       setMiningDataset(mining);
       setTreatyDataset(treaties);
       setContacts(directory);
       setClaimOverview(overview);
+      setJurisdictionStatuses(sourceStatuses);
       setDataStatus("ready");
       if (typeof window !== "undefined") {
         const recordId = new URLSearchParams(window.location.search).get("record");
@@ -1165,6 +1181,8 @@ export default function MiningPortal() {
   const totalCurrentRecords = miningDataset?.metadata.databaseRecordCount ?? activities.length;
   const loadedMapRecords = activities.length;
   const generatedAt = miningDataset?.metadata.generatedAt;
+  const jurisdictionSourceStatus = jurisdictionStatuses?.jurisdictions[province];
+  const sourceUnavailable = jurisdictionSourceStatus?.state === "source-unavailable";
   const updated = formatDate(generatedAt, "Loading");
   const boundaryUpdated = formatDate(treatyDataset?.metadata.generatedAt, "Not available");
   const selectedTerritoryMeta = territoryMeta.get(territory);
@@ -1221,7 +1239,12 @@ export default function MiningPortal() {
             </optgroup>
           </select>
         </label>
-        <p id="coverage-note"><strong>{provinceConfig.name} coverage is live.</strong> Records are kept in province-specific source pipelines so differences between registries remain visible and auditable.</p>
+        <p id="coverage-note">
+          <strong>{sourceUnavailable ? `${provinceConfig.name} is showing its last verified records.` : `${provinceConfig.name} coverage is live.`}</strong>{" "}
+          {sourceUnavailable
+            ? jurisdictionSourceStatus.message
+            : "Records are kept in province-specific source pipelines so differences between registries remain visible and auditable."}
+        </p>
         <fieldset>
           <legend>Choose a published geographic view</legend>
           <div className="watch-place-options">
@@ -1259,8 +1282,14 @@ export default function MiningPortal() {
       </div>
       <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
-      <p><i /> Current activity only · no account required</p>
+      <p className={sourceUnavailable ? "source-unavailable" : ""}><i /> {sourceUnavailable ? "Official source temporarily unavailable · last verified records retained" : "Current activity only · no account required"}</p>
     </section>
+
+    {sourceUnavailable && <aside className="watch-source-alert" role="status" aria-label={`${provinceConfig.name} source availability`}>
+      <strong>{jurisdictionSourceStatus.message}</strong>
+      <span>Waniskâ Watch has retained the last verified {provinceConfig.name} snapshot and has not published a partial or unverified replacement. Confirm time-sensitive decisions with the responsible authority.</span>
+      {jurisdictionSourceStatus.sourceUrl && <a href={jurisdictionSourceStatus.sourceUrl} target="_blank" rel="noreferrer">Check the official source ↗</a>}
+    </aside>}
 
     <section className="territory-watch-section" id="territory-watch" aria-labelledby="territory-watch-title">
       <div className="territory-watch-heading">

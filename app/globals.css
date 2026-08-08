@@ -266,6 +266,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   border: 1px solid #d3c4a5;
   border-left: 5px solid var(--watch-gold);
 }
+
+.watch-source-alert {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.6fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin: 0 clamp(18px, 4vw, 64px) 28px;
+  padding: 18px 22px;
+  border: 1px solid #c58b35;
+  border-left: 6px solid #a96c18;
+  background: #fff8e9;
+  color: #3c2c16;
+}
+
+.watch-source-alert strong { font-size: 0.95rem; }
+.watch-source-alert span { line-height: 1.45; }
+.watch-source-alert a { color: #6d420b; font-weight: 700; white-space: nowrap; }
+.watch-snapshot p.source-unavailable i { background: #c58b35; }
+
+@media (max-width: 820px) {
+  .watch-source-alert {
+    grid-template-columns: 1fr;
+    margin-inline: 16px;
+  }
+}
 .watch-reliance-banner strong { font-size: 13px; line-height: 1.45; }
 .watch-reliance-banner span { color: #625a49; font-size: 12px; line-height: 1.55; }
 .watch-reliance-banner a { color: var(--watch-forest); font-weight: 800; text-underline-offset: 3px; }

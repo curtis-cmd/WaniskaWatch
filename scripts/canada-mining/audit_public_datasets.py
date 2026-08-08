@@ -45,6 +45,12 @@ def main() -> None:
     public_root = root / "public" / "data"
     audited_at = datetime.now(timezone.utc)
     audits: list[dict[str, Any]] = []
+    status_path = public_root / "jurisdiction-status.json"
+    source_statuses = (
+        json.loads(status_path.read_text(encoding="utf-8")).get("jurisdictions", {})
+        if status_path.exists()
+        else {}
+    )
 
     dataset_keys = ["manitoba", *PROVINCES.keys()]
     for key in dataset_keys:
@@ -97,7 +103,9 @@ def main() -> None:
                     issues.append("claim overview exceeds the lightweight map budget")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
-        if age_hours > 48:
+        source_status = source_statuses.get(key) or {}
+        source_unavailable = source_status.get("state") == "source-unavailable"
+        if age_hours > 48 and not source_unavailable:
             issues.append(f"snapshot is {age_hours:.1f} hours old")
 
         lineage: list[dict[str, Any]] = []
@@ -123,11 +131,20 @@ def main() -> None:
         else:
             normalized_count = int(metadata.get("featureCount") or 0)
 
+        audit_status = (
+            "review-required" if issues
+            else "source-unavailable" if source_unavailable
+            else "passed"
+        )
         audits.append(
             {
                 "key": key,
                 "jurisdiction": metadata.get("province") or key.replace("-", " ").title(),
-                "status": "passed" if not issues else "review-required",
+                "status": audit_status,
+                "sourceAvailability": source_status.get("state", "verified"),
+                "sourceCheckedAt": source_status.get("checkedAt"),
+                "lastVerified": source_status.get("lastVerified") or metadata.get("generatedAt"),
+                "availabilityMessage": source_status.get("message"),
                 "generatedAt": metadata.get("generatedAt"),
                 "ageHours": round(age_hours, 2),
                 "currentRecordCount": metadata.get("databaseRecordCount", metadata.get("featureCount")),
@@ -141,10 +158,17 @@ def main() -> None:
             }
         )
 
+    has_blocking_issues = any(item["status"] == "review-required" for item in audits)
+    has_source_outages = any(item["status"] == "source-unavailable" for item in audits)
+    audit_result = (
+        "review-required" if has_blocking_issues
+        else "passed-with-source-outages" if has_source_outages
+        else "passed"
+    )
     report = {
         "metadata": {
             "auditedAt": audited_at.isoformat(),
-            "result": "passed" if all(item["status"] == "passed" for item in audits) else "review-required",
+            "result": audit_result,
             "liveJurisdictionCount": len(audits),
             "totalCurrentRecordCount": sum(int(item["currentRecordCount"] or 0) for item in audits),
             "scope": "Current public mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts.",
@@ -157,7 +181,7 @@ def main() -> None:
     print(f"Wrote {destination}")
     for item in audits:
         print(f"{item['jurisdiction']}: {item['status']} — {item['currentRecordCount']:,} current records")
-    if report["metadata"]["result"] != "passed":
+    if has_blocking_issues:
         raise SystemExit(1)
 
 
