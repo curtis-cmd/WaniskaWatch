@@ -116,7 +116,7 @@ jobs:
           git push
 
       - name: Resolve an earlier refresh alert
-        if: success() && steps.refresh.outputs.outages == ''
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
