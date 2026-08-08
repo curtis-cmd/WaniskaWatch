@@ -134,7 +134,7 @@ jobs:
         run: |
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           issue_number=$(gh issue list --state open --search 'Public mining source temporarily unavailable in:title' --json number --jq '.[0].number // empty')
-          message="The verified refresh completed for available jurisdictions. These government sources were unavailable, so Waniskâ Watch retained and visibly labelled their last verified snapshots: $OUTAGES. Review: $run_url"
+          message="The verified refresh completed for available jurisdictions. These government sources were unavailable, so Waniskâ Watch temporarily unpublished their records while retaining the last-verified dates for audit and restoration: $OUTAGES. Review: $run_url"
           if [ -n "$issue_number" ]; then
             gh issue comment "$issue_number" --body "$message"
           else
