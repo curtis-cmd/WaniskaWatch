@@ -73,9 +73,9 @@ jobs:
 
             echo "Official source unavailable for $jurisdiction; restoring the last verified snapshot."
             git restore --source=HEAD --worktree --staged \
-              "data/${jurisdiction}-mining" \
               ":(glob)public/data/${jurisdiction}-**" || true
-            git clean -fd -- "data/${jurisdiction}-mining" "public/data/${jurisdiction}-claims" || true
+            git clean -fdx -- "data/${jurisdiction}-mining" || true
+            git clean -fd -- "public/data/${jurisdiction}-claims" || true
             python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" source-unavailable
             outages+=("$jurisdiction")
           done

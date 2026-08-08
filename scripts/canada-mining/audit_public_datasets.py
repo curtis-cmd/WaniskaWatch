@@ -109,7 +109,7 @@ def main() -> None:
             issues.append(f"snapshot is {age_hours:.1f} hours old")
 
         lineage: list[dict[str, Any]] = []
-        if key in PROVINCES:
+        if key in PROVINCES and not source_unavailable:
             raw_dir = root / "data" / f"{key}-mining" / "raw"
             manifest = json.loads((raw_dir / "download_manifest.json").read_text(encoding="utf-8"))
             for layer in manifest["layers"]:
@@ -128,6 +128,11 @@ def main() -> None:
                 normalized_count = int(db.execute("SELECT COUNT(*) FROM mining_records").fetchone()[0])
             if normalized_count != sum(item["canonicalRaw"] for item in lineage):
                 issues.append("normalized record count does not match canonical raw features")
+        elif key in PROVINCES:
+            # A source outage deliberately retains the last published snapshot.
+            # Fresh raw files are not available and must not be invented or
+            # treated as newly verified lineage.
+            normalized_count = int(metadata.get("databaseRecordCount", metadata.get("featureCount")) or 0)
         else:
             normalized_count = int(metadata.get("featureCount") or 0)
 
