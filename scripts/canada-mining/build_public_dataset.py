@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sqlite3
 import sys
@@ -316,6 +317,17 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     )
     omitted_claim_polygons = claim_delivery != "included"
     as_of_date = generated_at[:10]
+    holder_override_path = (
+        data_root / f"{province_key}-mining" / "processed" / "holder_overrides.csv"
+    )
+    holder_registry_checks: dict[str, dict[str, str]] = {}
+    if holder_override_path.exists():
+        with holder_override_path.open(encoding="utf-8") as handle:
+            holder_registry_checks = {
+                row["external_id"].strip(): row
+                for row in csv.DictReader(handle)
+                if row.get("external_id", "").strip()
+            }
     claim_overview_path = (
         write_claim_overview(
             province_key,
@@ -343,6 +355,11 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     counts: Counter[str] = Counter()
     treaty_counts: Counter[str] = Counter()
     holders: set[str] = set()
+    holder_record_count = 0
+    holder_review_count = 0
+    holder_field_by_record_type = {
+        layer.record_type: layer.holder for layer in config["layers"]
+    }
     kind_lookup = {"claim": "claim", "exploration": "exploration", "operation": "lease"}
     tolerances = {"claim": 75, "exploration": 200, "operation": 75}
     for row in rows:
@@ -352,6 +369,19 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         treaty_counts[row["territory_name"]] += 1
         if row["holder_or_owner"]:
             holders.add(row["holder_or_owner"])
+            holder_record_count += 1
+        else:
+            holder_review_count += 1
+        registry_check = holder_registry_checks.get((row["external_id"] or "").strip())
+        holder_availability = (
+            "published"
+            if row["holder_or_owner"]
+            else "registry-checked-unavailable"
+            if registry_check
+            else "published-field-empty"
+            if holder_field_by_record_type.get(row["record_type"])
+            else "government-gis-omits-holder"
+        )
         if omitted_claim_polygons and row["category"] == "claim":
             if quebec_tiles:
                 geom = wkt.loads(row["geometry_wkt_epsg3347"])
@@ -367,6 +397,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                             "TIT_NO": row["external_id"],
                             "STATUS": row["status"],
                             "OWNERS": row["holder_or_owner"],
+                            "HOLDER_AVAILABILITY": holder_availability,
                             "ISSUE_DATE": row["issue_date"],
                             "EXPIRY_DATE": row["expiry_date"],
                             "AREA_HA": row["reported_area_hectares"],
@@ -397,8 +428,24 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                     "commodity": row["commodity"],
                     "holder": row["holder_or_owner"],
                     "holderEvidence": (
-                        f"Published field in {row['source_name']}" if row["holder_or_owner"] else None
+                        "Public registry export"
+                        if registry_check and row["holder_or_owner"]
+                        else f"Published field in {row['source_name']}"
+                        if row["holder_or_owner"]
+                        else None
                     ),
+                    "holderEvidenceUrl": (
+                        registry_check.get("evidence_url")
+                        if registry_check
+                        else row["source_record_url"] or row["source_url"]
+                    ),
+                    "holderVerifiedAt": (
+                        registry_check.get("evidence_date")
+                        if registry_check
+                        else as_of_date
+                    ),
+                    "holderAvailability": holder_availability,
+                    "holderReviewRequired": not bool(row["holder_or_owner"]),
                     "issueDate": row["issue_date"],
                     "expiryDate": row["expiry_date"],
                     "longitude": round(row["centroid_longitude"], 5),
@@ -425,6 +472,12 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             "databaseRecordCount": total_records,
             "counts": counts,
             "recordedHolderCount": holder_count,
+            "recordedHolderRecordCount": holder_record_count,
+            "holderReviewRequiredCount": holder_review_count,
+            "holderAudit": {
+                "method": "Government-published holder, owner, company, applicant or proponent fields are mapped by jurisdiction and checked during each source refresh.",
+                "checkedAt": as_of_date,
+            },
             "treatyCounts": dict(treaty_counts),
             "claimDelivery": claim_delivery,
             "claimOverview": claim_overview_path,
@@ -456,6 +509,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         "mapFeatureCount": len(features),
         "counts": counts,
         "recordedHolderCount": holder_count,
+        "recordedHolderRecordCount": holder_record_count,
+        "holderReviewRequiredCount": holder_review_count,
         "territoryCount": len(territory_features),
         "miningDataset": f"/data/{province_key}-mining.json",
         "territoryDataset": f"/data/{province_key}-territories.json",

@@ -233,3 +233,43 @@ test("publishes only jurisdictions verified during the latest successful refresh
   assert.equal(dataAudit.liveJurisdictions.every(item => ["passed", "source-unavailable"].includes(item.status)), true);
   assert.ok(verified.length > 0);
 });
+
+test("publishes holder provenance and review flags without implying non-publication", async () => {
+  const [manitoba, newBrunswick, audit] = await Promise.all([
+    readFile(new URL("../public/data/manitoba-mining.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../public/data/new-brunswick-mining.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../public/data/data-audit.json", import.meta.url), "utf8").then(JSON.parse),
+  ]);
+  const allowedAvailability = new Set([
+    "published",
+    "published-field-empty",
+    "government-gis-omits-holder",
+    "registry-checked-unavailable",
+  ]);
+
+  const sv15502 = manitoba.features.find(feature => feature.properties.id === "SV15502");
+  assert.equal(sv15502.properties.holder, "CanWhite Sands Corp.");
+  assert.equal(sv15502.properties.holderAvailability, "published");
+  assert.equal(sv15502.properties.holderReviewRequired, false);
+
+  const checkedUnavailable = newBrunswick.features.find(feature => feature.properties.id === "257");
+  assert.equal(checkedUnavailable.properties.holder, null);
+  assert.equal(checkedUnavailable.properties.holderAvailability, "registry-checked-unavailable");
+  assert.equal(checkedUnavailable.properties.holderReviewRequired, true);
+  assert.match(checkedUnavailable.properties.holderEvidenceUrl, /nbeclaims\.gnb\.ca/);
+
+  for (const jurisdiction of audit.liveJurisdictions.filter(item => item.status === "passed")) {
+    const dataset = await readFile(
+      new URL(`../public/data/${jurisdiction.key}-mining.json`, import.meta.url),
+      "utf8",
+    ).then(JSON.parse);
+    assert.equal(
+      dataset.metadata.recordedHolderRecordCount + dataset.metadata.holderReviewRequiredCount,
+      dataset.metadata.databaseRecordCount ?? dataset.features.length,
+    );
+    for (const feature of dataset.features) {
+      assert.equal(allowedAvailability.has(feature.properties.holderAvailability), true);
+      assert.equal(Boolean(feature.properties.holder), !feature.properties.holderReviewRequired);
+    }
+  }
+});

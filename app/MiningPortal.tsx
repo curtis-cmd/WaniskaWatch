@@ -7,6 +7,7 @@ import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Ma
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
 type DataStatus = "loading" | "ready" | "error";
+type HolderAvailability = "published" | "published-field-empty" | "government-gis-omits-holder" | "registry-checked-unavailable";
 type ProvinceKey =
   | "manitoba"
   | "saskatchewan"
@@ -41,6 +42,10 @@ type ActivityProperties = {
   commodity: string | null;
   holder: string | null;
   holderEvidence: string | null;
+  holderEvidenceUrl?: string | null;
+  holderVerifiedAt?: string | null;
+  holderAvailability?: HolderAvailability;
+  holderReviewRequired?: boolean;
   issueDate: string | null;
   expiryDate: string | null;
   longitude: number;
@@ -262,6 +267,20 @@ function recordedPartyLabel(kind: ActivityKind) {
   return "Recorded holder";
 }
 
+function holderUnavailableText(properties: ActivityProperties) {
+  if (properties.holder) return properties.holder;
+  if (properties.holderAvailability === "government-gis-omits-holder") {
+    return "Unavailable in this government GIS dataset — registry review required";
+  }
+  if (properties.holderAvailability === "published-field-empty") {
+    return "Government holder field is blank — review required";
+  }
+  if (properties.holderAvailability === "registry-checked-unavailable") {
+    return "Unavailable after current public-registry check";
+  }
+  return "Holder source review required";
+}
+
 function normalizePublishedFields(properties: ActivityProperties): ActivityProperties {
   const publishedStatus = String(properties.status || "").trim();
   const sourceName = String(properties.sourceName || "").toLowerCase();
@@ -344,7 +363,7 @@ function escapeHtml(value: string | number | null | undefined) {
 
 function activityTooltip(properties: ActivityProperties) {
   const title = properties.name || properties.id;
-  const holder = properties.holder || "Holder not published";
+  const holder = holderUnavailableText(properties);
   const area = properties.areaHa == null ? "Area not published" : `${fmt(properties.areaHa)} ha`;
   const rights = properties.rightsClassification
     ? `<div><dt>Rights classification</dt><dd>${escapeHtml(properties.rightsClassification)}</dd></div>`
@@ -530,14 +549,16 @@ export default function MiningPortal() {
   useEffect(() => {
     if (!jurisdictionStatuses) return;
     if (jurisdictionStatuses.jurisdictions[province]?.state !== "verified") {
-      setMiningDataset(null);
-      setTreatyDataset(null);
-      setContacts(null);
-      setClaimOverview(null);
-      setLiveClaims([]);
-      setSelected(null);
-      setDataStatus("loading");
-      return;
+      const resetUnavailableProvince = window.setTimeout(() => {
+        setMiningDataset(null);
+        setTreatyDataset(null);
+        setContacts(null);
+        setClaimOverview(null);
+        setLiveClaims([]);
+        setSelected(null);
+        setDataStatus("loading");
+      }, 0);
+      return () => window.clearTimeout(resetUnavailableProvince);
     }
     let active = true;
     Promise.all([
@@ -943,6 +964,14 @@ export default function MiningPortal() {
               commodity: null,
               holder: holder ? String(holder) : null,
               holderEvidence: holder ? `Published ${provinceName} government holder field` : null,
+              holderEvidenceUrl: payload.metadata?.sourceUrl || null,
+              holderVerifiedAt: miningDataset?.metadata.generatedAt?.slice(0, 10) || null,
+              holderAvailability: holder
+                ? "published"
+                : properties.HOLDER_AVAILABILITY === "government-gis-omits-holder"
+                  ? "government-gis-omits-holder"
+                  : "published-field-empty",
+              holderReviewRequired: !holder,
               issueDate: dateValue(issueDate),
               expiryDate: dateValue(expiryDate),
               longitude,
@@ -1462,7 +1491,9 @@ export default function MiningPortal() {
               <div><dt>Territorial context</dt><dd>{territoryLabel(selected.properties.treaty)}<small>Spatially inferred primary polygon match; other overlaps may exist</small></dd></div>
               <div><dt>Published status</dt><dd>{readableStatus(selected.properties.status)}<small>Reproduced from the cited public source where available</small></dd></div>
               {selected.properties.rightsClassification && <div><dt>Rights classification</dt><dd>{selected.properties.rightsClassification}<small>Classification published by the responsible government source</small></dd></div>}
-              <div><dt>{recordedPartyLabel(selected.properties.kind)}</dt><dd>{selected.properties.holder || "Not published"}<small>{selected.properties.holderEvidence ? "Reproduced from the cited public source" : "Completeness limited"}</small></dd></div>
+              <div><dt>{recordedPartyLabel(selected.properties.kind)}</dt><dd>{holderUnavailableText(selected.properties)}<small>{selected.properties.holderEvidence
+                ? `Reproduced from the cited public source; holder checked ${formatDate(selected.properties.holderVerifiedAt || selected.properties.lastUpdated)}`
+                : "Waniskâ Watch has flagged this record for holder-source review; verify through the official registry before acting"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
               {selected.properties.location && <div><dt>Published location</dt><dd>{selected.properties.location}</dd></div>}
               <div><dt>Area</dt><dd>{selected.properties.areaHa == null ? "Not published" : `${fmt(selected.properties.areaHa)} ha`}</dd></div>

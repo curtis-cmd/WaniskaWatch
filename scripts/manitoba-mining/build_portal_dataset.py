@@ -83,7 +83,7 @@ def main() -> None:
     parser.add_argument(
         "--ownership",
         type=Path,
-        default=Path("data/manitoba-mining/processed/claim_holders_good_stand.csv"),
+        default=Path("data/manitoba-mining/processed/disposition_holders_current.csv"),
     )
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -101,12 +101,20 @@ def main() -> None:
     }
     verified_holders = {
         # Verified in Manitoba's public iMaQs Mining Search on 2026-07-30.
-        "W45426": "Vision Lithium Inc.",
+        "W45426": {
+            "name": "Vision Lithium Inc.",
+            "evidenceDate": "2026-07-30",
+            "evidenceUrl": "https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf",
+        },
     }
     if args.ownership.exists():
         with args.ownership.open(encoding="utf-8") as handle:
             for row in csv.DictReader(handle):
-                verified_holders[row["disposition_number"]] = row["holder_names"] or row["holder_raw"]
+                verified_holders[row["disposition_number"]] = {
+                    "name": row["holder_names"] or row["holder_raw"],
+                    "evidenceDate": row["evidence_date"],
+                    "evidenceUrl": row["evidence_url"],
+                }
     type_names = {
         "claim": "Mining claim",
         "exploration": "Mineral exploration licence",
@@ -142,11 +150,9 @@ def main() -> None:
                 or props.get("OBJECTID")
             )
             record_type = record_type_lookup[kind]
-            holder = (
-                verified_holders.get(external_id)
-                or props.get("CLAIM_HOLDER")
-                or props.get("CURRENT_OWNER")
-            )
+            registry_holder = verified_holders.get(external_id)
+            mapped_holder = props.get("CLAIM_HOLDER") or props.get("CURRENT_OWNER")
+            holder = registry_holder["name"] if registry_holder else mapped_holder
             name = props.get("CLAIM_NAME") or props.get("MINE_NAME") or external_id
             centroid = wgs.centroid
             geometry = mapping(wgs)
@@ -166,7 +172,17 @@ def main() -> None:
                         "areaHa": props.get("AREA_IN_HECTARES"),
                         "commodity": props.get("COMMODITY"),
                         "holder": holder,
-                        "holderEvidence": "iMaQs public Mining Search" if external_id in verified_holders else None,
+                        "holderEvidence": (
+                            "iMaQs public Mining Search"
+                            if registry_holder
+                            else "Published field in Government of Manitoba iMaQs"
+                            if mapped_holder
+                            else None
+                        ),
+                        "holderEvidenceUrl": registry_holder["evidenceUrl"] if registry_holder else None,
+                        "holderVerifiedAt": registry_holder["evidenceDate"] if registry_holder else as_of_date,
+                        "holderAvailability": "published" if holder else "registry-checked-unavailable",
+                        "holderReviewRequired": not bool(holder),
                         "issueDate": compact_date(props.get("ISSUE_DATE")),
                         "expiryDate": expiry_date,
                         "longitude": round(centroid.x, 5),
@@ -176,6 +192,7 @@ def main() -> None:
             )
 
     counts = Counter(feature["properties"]["kind"] for feature in features)
+    holder_records = sum(bool(feature["properties"]["holder"]) for feature in features)
     treaty_counts = Counter(feature["properties"]["treaty"] for feature in features)
     payload = {
         "metadata": {
@@ -186,6 +203,13 @@ def main() -> None:
             "sourceUrl": "https://rdmaps.gov.mb.ca/arcgis/rest/services/iMaQs/imaqsMining/MapServer",
             "treatyBoundaryNote": "Approximate geographic index only; not a legal or consultation determination.",
             "featureCount": len(features),
+            "recordedHolderRecordCount": holder_records,
+            "holderReviewRequiredCount": len(features) - holder_records,
+            "holderAudit": {
+                "method": "iMaQs public Mining Search export matched by disposition number, with published GIS owner fields used where present.",
+                "registrySourceUrl": "https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf",
+                "checkedAt": as_of_date,
+            },
             "locationNote": "Only current government-status records are included; clearly inactive and expired records are excluded.",
             "counts": counts,
             "treatyCounts": treaty_counts,

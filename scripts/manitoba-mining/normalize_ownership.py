@@ -34,31 +34,32 @@ def holder_names(raw: str) -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("input", type=Path)
+    parser.add_argument("inputs", type=Path, nargs="+")
     parser.add_argument(
         "--output",
         type=Path,
         default=Path("data/manitoba-mining/processed/claim_holders_good_stand.csv"),
     )
     args = parser.parse_args()
-    data = pd.read_excel(args.input, dtype=str).fillna("")
     rows = []
-    for _, row in data.iterrows():
-        raw = str(row["Holder"]).strip()
-        names = holder_names(raw)
-        types = ["organization" if ORGANIZATION_TERMS.search(name) else "individual" for name in names]
-        rows.append(
-            {
-                "disposition_number": str(row["Disposition Number"]).strip(),
-                "holder_raw": raw,
-                "holder_names": " | ".join(names),
-                "holder_types": " | ".join(types),
-                "status": str(row["Status"]).strip(),
-                "evidence_url": "https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf",
-                "evidence_date": date.today().isoformat(),
-                "confidence": "verified",
-            }
-        )
+    for source in args.inputs:
+        data = pd.read_excel(source, dtype=str).fillna("")
+        for _, row in data.iterrows():
+            raw = str(row["Holder"]).strip()
+            names = holder_names(raw)
+            types = ["organization" if ORGANIZATION_TERMS.search(name) else "individual" for name in names]
+            rows.append(
+                {
+                    "disposition_number": str(row["Disposition Number"]).strip(),
+                    "holder_raw": raw,
+                    "holder_names": " | ".join(names),
+                    "holder_types": " | ".join(types),
+                    "status": str(row["Status"]).strip(),
+                    "evidence_url": "https://web33.gov.mb.ca/imaqs/page/viewer/mineralSearch/searchForm.jsf",
+                    "evidence_date": date.today().isoformat(),
+                    "confidence": "verified",
+                }
+            )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(args.output, index=False)
     print(f"Wrote {len(rows):,} ownership rows to {args.output}")

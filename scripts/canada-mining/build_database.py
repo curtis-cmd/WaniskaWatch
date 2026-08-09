@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import sqlite3
@@ -338,6 +339,15 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     database_path = output_dir / f"{args.province}_mining_by_territory.sqlite"
     database_path.unlink(missing_ok=True)
+    holder_overrides: dict[str, dict[str, str]] = {}
+    holder_override_path = output_dir / "holder_overrides.csv"
+    if holder_override_path.exists():
+        with holder_override_path.open(encoding="utf-8") as handle:
+            holder_overrides = {
+                row["external_id"].strip(): row
+                for row in csv.DictReader(handle)
+                if row.get("external_id", "").strip() and row.get("holder", "").strip()
+            }
 
     manifest = json.loads((raw_dir / "download_manifest.json").read_text(encoding="utf-8"))
     retrieved_at = manifest["retrieved_at"]
@@ -437,7 +447,12 @@ def main() -> None:
                 continue
             seen_source_records[source_object_id] = feature_fingerprint
             external_id = clean_text(scalar(props, layer.external_id))
-            holder = clean_text(scalar(props, layer.holder))
+            holder_override = holder_overrides.get(external_id or "")
+            holder = (
+                clean_text(holder_override.get("holder"))
+                if holder_override
+                else clean_text(scalar(props, layer.holder))
+            )
             source_record_url = clean_text(scalar(props, layer.source_link))
             cursor = db.execute(
                 """INSERT INTO mining_records
@@ -524,7 +539,11 @@ def main() -> None:
                         record_id,
                         entity_id,
                         percent,
-                        f"{layer.source_name} public field {layer.holder}",
+                        (
+                            f"Public registry export {holder_override.get('evidence_url')}"
+                            if holder_override
+                            else f"{layer.source_name} public field {layer.holder}"
+                        ),
                     ),
                 )
         duplicate_note = f"; ignored {duplicate_count:,} exact source duplicates" if duplicate_count else ""

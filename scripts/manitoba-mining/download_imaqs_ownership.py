@@ -24,6 +24,7 @@ TITLE_TYPES = {
     "MC4": "mining_claim_holders",
     "MEL": "mineral_exploration_licence_holders",
     "ML": "mineral_lease_holders",
+    "MCL": "mining_claim_lease_holders",
 }
 USER_AGENT = "Waniska-Manitoba-Mining-Ownership-Research/1.0"
 
@@ -66,6 +67,7 @@ def jsf_action(onclick: str) -> list[tuple[str, str]]:
 
 
 def download_title_type(code: str, output: Path, status: str = "") -> dict:
+    output.unlink(missing_ok=True)
     cookies = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
 
@@ -91,6 +93,16 @@ def download_title_type(code: str, output: Path, status: str = "") -> dict:
     result = html.fromstring(result_body, base_url=result_url)
     errors = [" ".join(node.text_content().split()) for node in result.xpath("//*[contains(@class,'error_text')]")]
     if errors:
+        if all("No matched record was found" in error for error in errors):
+            debug_result.unlink(missing_ok=True)
+            return {
+                "title_type": code,
+                "file": None,
+                "bytes": 0,
+                "content_type": None,
+                "status": status or "ALL",
+                "records": 0,
+            }
         raise RuntimeError(f"iMaQs search failed for {code}: {'; '.join(errors)}")
 
     excel_links = result.xpath("//a[normalize-space(.)='Excel']")
@@ -131,6 +143,7 @@ def main() -> None:
     parser.add_argument("--raw-dir", type=Path, default=Path("data/manitoba-mining/raw/ownership"))
     parser.add_argument("--types", nargs="+", choices=sorted(TITLE_TYPES), default=list(TITLE_TYPES))
     parser.add_argument("--status", default="")
+    parser.add_argument("--statuses", nargs="+", default=None)
     args = parser.parse_args()
     args.raw_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -138,12 +151,14 @@ def main() -> None:
         "source_url": SEARCH_URL,
         "exports": [],
     }
+    statuses = args.statuses or [args.status]
     for code in args.types:
         stem = TITLE_TYPES[code]
-        suffix = f"_{args.status.lower()}" if args.status else ""
-        result = download_title_type(code, args.raw_dir / f"{stem}{suffix}.xls", args.status)
-        manifest["exports"].append(result)
-        print(f"{stem}: {result['bytes']:,} bytes")
+        for status in statuses:
+            suffix = f"_{status.lower()}" if status else ""
+            result = download_title_type(code, args.raw_dir / f"{stem}{suffix}.xls", status)
+            manifest["exports"].append(result)
+            print(f"{stem} ({status or 'ALL'}): {result['bytes']:,} bytes")
     (args.raw_dir / "ownership_manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )

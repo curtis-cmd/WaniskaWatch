@@ -100,6 +100,32 @@ def main() -> None:
         )
         if inactive_count:
             issues.append(f"{inactive_count} clearly inactive bundled records")
+        valid_holder_availability = {
+            "published",
+            "published-field-empty",
+            "government-gis-omits-holder",
+            "registry-checked-unavailable",
+        }
+        missing_holder_audit = 0
+        inconsistent_holder_audit = 0
+        for feature in features:
+            props = feature.get("properties") or {}
+            availability = props.get("holderAvailability")
+            if availability not in valid_holder_availability:
+                missing_holder_audit += 1
+            elif bool(props.get("holder")) != (availability == "published"):
+                inconsistent_holder_audit += 1
+        if missing_holder_audit:
+            issues.append(f"{missing_holder_audit} bundled records lack a valid holder availability classification")
+        if inconsistent_holder_audit:
+            issues.append(f"{inconsistent_holder_audit} bundled records have inconsistent holder classifications")
+        holder_record_count = metadata.get("recordedHolderRecordCount")
+        holder_review_count = metadata.get("holderReviewRequiredCount")
+        total_metadata_records = int(metadata.get("databaseRecordCount", metadata.get("featureCount")) or 0)
+        if holder_record_count is None or holder_review_count is None:
+            issues.append("dataset lacks record-level holder audit totals")
+        elif int(holder_record_count) + int(holder_review_count) != total_metadata_records:
+            issues.append("record-level holder audit totals do not match current record count")
         expired_count = sum(
             1 for feature in features
             if key in {"british-columbia", "quebec", "northwest-territories"}
@@ -148,8 +174,29 @@ def main() -> None:
                 root / "data" / f"{key}-mining" / "processed"
                 / f"{key}_mining_by_territory.sqlite"
             )
+            holder_source_gaps: list[dict[str, Any]] = []
             with sqlite3.connect(db_path) as db:
                 normalized_count = int(db.execute("SELECT COUNT(*) FROM mining_records").fetchone()[0])
+                for layer in PROVINCES[key]["layers"]:
+                    total, published = db.execute(
+                        """SELECT COUNT(*), SUM(CASE WHEN holder_or_owner IS NOT NULL
+                                                   AND TRIM(holder_or_owner)<>'' THEN 1 ELSE 0 END)
+                           FROM mining_records WHERE record_type=?""",
+                        (layer.record_type,),
+                    ).fetchone()
+                    holder_source_gaps.append(
+                        {
+                            "recordType": layer.record_type,
+                            "governmentField": layer.holder,
+                            "normalizedRecords": int(total or 0),
+                            "recordsWithPublishedHolder": int(published or 0),
+                            "reviewRequired": not bool(layer.holder),
+                        }
+                    )
+                    if layer.holder and total and not published:
+                        issues.append(
+                            f"{layer.record_type} maps government holder field {layer.holder} but populated no holders"
+                        )
             if normalized_count != sum(item["canonicalRaw"] for item in lineage):
                 issues.append("normalized record count does not match canonical raw features")
         elif key in PROVINCES:
@@ -157,8 +204,12 @@ def main() -> None:
             # Fresh raw files are not available and must not be invented or
             # treated as newly verified lineage.
             normalized_count = int(metadata.get("databaseRecordCount", metadata.get("featureCount")) or 0)
+            holder_source_gaps = []
         else:
             normalized_count = int(metadata.get("featureCount") or 0)
+            holder_source_gaps = []
+            if key == "manitoba" and metadata.get("recordedHolderRecordCount", 0) == 0:
+                issues.append("Manitoba iMaQs registry-holder merge populated no current records")
 
         audit_status = (
             "review-required" if issues
@@ -182,6 +233,9 @@ def main() -> None:
                 "claimDelivery": metadata.get("claimDelivery", "included"),
                 "claimOverviewCellCount": overview_cell_count,
                 "recordedHolderCount": metadata.get("recordedHolderCount"),
+                "recordedHolderRecordCount": metadata.get("recordedHolderRecordCount"),
+                "holderReviewRequiredCount": metadata.get("holderReviewRequiredCount"),
+                "holderSourceAudit": holder_source_gaps,
                 "normalizedRecordCount": normalized_count,
                 "lineage": lineage,
                 "issues": issues,
