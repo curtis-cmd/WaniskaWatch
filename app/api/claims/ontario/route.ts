@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import claimOverview from "../../../../public/data/ontario-claim-overview.json";
 import { unavailableJurisdictionResponse } from "../sourceVerification";
 
 const CLAIM_LAYER =
   "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS/mlas_op/MapServer/1";
 const MAX_FEATURES = 2000;
+const CURRENT_CLAIM_COUNT = Number(claimOverview.metadata.claimCount || 0);
 
 function validNumber(value: string | null) {
   if (value == null || value.trim() === "") return null;
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       type: "FeatureCollection",
       features: [],
-      metadata: { requiresZoom: true, count: 394878, truncated: false },
+      metadata: { requiresZoom: true, count: CURRENT_CLAIM_COUNT, truncated: false },
     });
   }
 

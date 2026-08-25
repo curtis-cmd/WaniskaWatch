@@ -45,6 +45,7 @@ jobs:
           PYTHONPATH: scripts/canada-mining/vendor
         run: |
           outages=()
+          boundary_outages=()
           for jurisdiction in \
             manitoba \
             alberta \
@@ -66,8 +67,25 @@ jobs:
               refresh_command=(bash scripts/canada-mining/refresh.sh "$jurisdiction")
             fi
 
-            if "${refresh_command[@]}"; then
+            set +e
+            "${refresh_command[@]}"
+            refresh_exit=$?
+            set -e
+
+            if [ "$refresh_exit" -eq 0 ]; then
               python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" verified
+              continue
+            fi
+
+            if [ "$refresh_exit" -eq 42 ]; then
+              echo "Mining source completed for $jurisdiction, but territorial boundaries were unavailable; retaining the complete last verified snapshot."
+              git restore --source=HEAD --worktree --staged \
+                ":(glob)public/data/${jurisdiction}-**" || true
+              git clean -fdx -- "data/${jurisdiction}-mining" || true
+              git clean -fd -- "public/data/${jurisdiction}-claims" || true
+              python scripts/canada-mining/update_jurisdiction_status.py \
+                "$jurisdiction" boundary-source-unavailable
+              boundary_outages+=("$jurisdiction")
               continue
             fi
 
@@ -81,7 +99,17 @@ jobs:
             outages+=("$jurisdiction")
           done
           outage_list=$(IFS=,; echo "${outages[*]}")
+          boundary_outage_list=$(IFS=,; echo "${boundary_outages[*]}")
           echo "outages=$outage_list" >> "$GITHUB_OUTPUT"
+          echo "boundary_outages=$boundary_outage_list" >> "$GITHUB_OUTPUT"
+
+          # A broad, simultaneous disappearance is more likely a shared service or
+          # runner problem than nine independent government-source outages. Never
+          # publish that state automatically.
+          if [ "${#outages[@]}" -gt 3 ]; then
+            echo "::error::Safety gate stopped publication because ${#outages[@]} jurisdictions would be removed at once: $outage_list"
+            exit 1
+          fi
 
       - name: Audit the complete public dataset
         env:
@@ -127,14 +155,15 @@ jobs:
           fi
 
       - name: Open or update a source outage alert
-        if: success() && steps.refresh.outputs.outages != ''
+        if: success() && (steps.refresh.outputs.outages != '' || steps.refresh.outputs.boundary_outages != '')
         env:
           GH_TOKEN: ${{ github.token }}
           OUTAGES: ${{ steps.refresh.outputs.outages }}
+          BOUNDARY_OUTAGES: ${{ steps.refresh.outputs.boundary_outages }}
         run: |
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           issue_number=$(gh issue list --state open --search 'Public mining source temporarily unavailable in:title' --json number --jq '.[0].number // empty')
-          message="The verified refresh completed for available jurisdictions. These government sources were unavailable, so Waniskâ Watch temporarily unpublished their records while retaining the last-verified dates for audit and restoration: $OUTAGES. Review: $run_url"
+          message="The verified refresh completed for available jurisdictions. Mining-source outages (temporarily unpublished): ${OUTAGES:-none}. Territory-boundary outages (last verified mining snapshot retained): ${BOUNDARY_OUTAGES:-none}. Review: $run_url"
           if [ -n "$issue_number" ]; then
             gh issue comment "$issue_number" --body "$message"
           else

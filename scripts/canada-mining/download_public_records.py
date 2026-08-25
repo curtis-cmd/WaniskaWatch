@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -21,6 +22,7 @@ from custom_sources import download_custom
 OUT_SR = "3347"
 PAGE_SIZE = int(os.environ.get("WANISKA_ARCGIS_PAGE_SIZE", "1000"))
 WORKERS = int(os.environ.get("WANISKA_ARCGIS_WORKERS", "4"))
+BOUNDARY_SOURCE_UNAVAILABLE_EXIT = 42
 
 
 def fetch_json(url: str, attempts: int = 5) -> dict[str, Any]:
@@ -256,33 +258,52 @@ def main() -> None:
                 raise RuntimeError(f"--mining-only requires {raw_dir / filename}")
             manifest[key] = previous_manifest[key]
     else:
-        province_name, province_url, province_layer = STATCAN_PROVINCES
-        province_records = download_single_layer(
-            province_url,
-            province_layer,
-            raw_dir / "province_boundary.geojson",
-            where=f"PRUID='{config['pruid']}'",
-            max_allowable_offset="500",
-        )
-        manifest["province_boundary"] = {
-            "source_name": province_name,
-            "source_url": f"{province_url}/{province_layer}",
-            "records": province_records,
-        }
+        try:
+            province_name, province_url, province_layer = STATCAN_PROVINCES
+            province_records = download_single_layer(
+                province_url,
+                province_layer,
+                raw_dir / "province_boundary.geojson",
+                where=f"PRUID='{config['pruid']}'",
+                max_allowable_offset="500",
+            )
+            manifest["province_boundary"] = {
+                "source_name": province_name,
+                "source_url": f"{province_url}/{province_layer}",
+                "records": province_records,
+            }
 
-        territory_name, territory_url, territory_layer = config["territory_source"]
-        territory_records = download_single_layer(
-            territory_url,
-            territory_layer,
-            raw_dir / "territory_boundaries.geojson",
-            where="1=1",
-            max_allowable_offset="100",
-        )
-        manifest["territory_boundary"] = {
-            "source_name": territory_name,
-            "source_url": f"{territory_url}/{territory_layer}",
-            "records": territory_records,
-        }
+            territory_name, territory_url, territory_layer = config["territory_source"]
+            territory_records = download_single_layer(
+                territory_url,
+                territory_layer,
+                raw_dir / "territory_boundaries.geojson",
+                where="1=1",
+                max_allowable_offset="100",
+            )
+            manifest["territory_boundary"] = {
+                "source_name": territory_name,
+                "source_url": f"{territory_url}/{territory_layer}",
+                "records": territory_records,
+            }
+        except Exception as error:
+            # Mining records and territorial context have separate source lifecycles.
+            # A shared boundary outage must not be reported as a mining-source outage
+            # or cause the last verified mining snapshot to disappear.
+            manifest["boundary_error"] = {
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "message": str(error),
+            }
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            print(
+                "BOUNDARY_SOURCE_UNAVAILABLE: mining download completed, but the "
+                f"province/treaty boundary refresh failed: {error}",
+                file=sys.stderr,
+            )
+            raise SystemExit(BOUNDARY_SOURCE_UNAVAILABLE_EXIT)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

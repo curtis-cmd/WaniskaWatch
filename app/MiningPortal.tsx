@@ -1309,8 +1309,8 @@ export default function MiningPortal() {
           </select>
         </label>
         <p id="coverage-note">
-          <strong>{provinceConfig.name} coverage is verified and live.</strong>{" "}
-          Published records were checked against the cited government source on the date shown. Jurisdictions that cannot be verified are temporarily removed.
+          <strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong>{" "}
+          Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.
         </p>
         <fieldset>
           <legend>Choose a published geographic view</legend>
@@ -1341,7 +1341,7 @@ export default function MiningPortal() {
     </section>
 
     <section className="watch-snapshot" aria-label="Current data coverage">
-      <div><span>CURRENT PUBLIC DATA</span><strong>{updated}</strong></div>
+      <div><span>VERIFIED AS OF</span><strong>{updated}</strong></div>
       <div className="watch-record-snapshot">
         <span>TOTAL CURRENT RECORDS</span>
         <strong>{totalCurrentRecords.toLocaleString("en-CA")}</strong>
@@ -1507,7 +1507,7 @@ export default function MiningPortal() {
 
             <aside className="watch-record-verification" aria-label="Record verification and non-reliance notice">
               <strong>This record was last verified against the cited government source on {selectedLastVerified}.</strong>
-              <span>This record reproduces publicly available information for identification and research only. Government information may change, be delayed, incomplete or inaccurate. Verify it directly with the responsible authority before acting and do not rely on Waniskâ Watch for legal, regulatory, consultation, investment or land-use decisions. To the extent permitted by law, Waniskâ Services is not responsible for decisions, losses or damages arising from reliance on this record.</span>
+              <span>Verification is date-specific; the record is not guaranteed real-time and has not necessarily been individually confirmed against every registry entry. This record reproduces publicly available information for identification and research only. Government information may change, be delayed, incomplete or inaccurate. Verify it directly with the responsible authority before acting and do not rely on Waniskâ Watch for legal, regulatory, consultation, investment or land-use decisions. To the extent permitted by law, Waniskâ Services is not responsible for decisions, losses or damages arising from reliance on this record.</span>
             </aside>
 
             <section className="watch-public-contact">
@@ -1589,7 +1589,7 @@ export default function MiningPortal() {
         <h2 id="legal-title">Public and third-party information</h2>
       </div>
       <div className="watch-legal-notice">
-        <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Waniskâ Watch temporarily removes a jurisdiction when its government source cannot be verified and restores it only after a successful source refresh and audit.</p>
+        <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Verification is date-specific: records are not guaranteed real-time and have not necessarily been individually confirmed against every registry entry. Waniskâ Watch temporarily removes a jurisdiction when its government source cannot be verified and restores it only after a successful source refresh and audit.</p>
         <p>Waniskâ Watch compiles and continually updates its database using publicly available government records and other third-party sources. Despite reasonable efforts to keep the database current, records, maps, boundaries, contacts and links may from time to time be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
         <p>Company and individual names are reproduced as recorded in cited public sources for identification and research. Inclusion does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity beyond the status shown. Records may change and must be verified with the responsible authority.</p>
         <p><strong>The information must be independently verified and must not be relied upon.</strong> Before acting, confirm the information with the responsible government registry and the affected Nation, community, rights holder, lands office or consultation office, as appropriate.</p>

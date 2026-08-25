@@ -12,7 +12,10 @@ from pathlib import Path
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("jurisdiction")
-    parser.add_argument("state", choices=["verified", "source-unavailable"])
+    parser.add_argument(
+        "state",
+        choices=["verified", "source-unavailable", "boundary-source-unavailable"],
+    )
     parser.add_argument("--source-url")
     args = parser.parse_args()
 
@@ -42,7 +45,7 @@ def main() -> None:
     )
     jurisdiction_name = metadata.get("province") or args.jurisdiction.replace("-", " ").title()
 
-    if args.state == "verified" and not metadata:
+    if args.state in {"verified", "boundary-source-unavailable"} and not metadata:
         raise SystemExit(f"Verified dataset is missing for {args.jurisdiction}")
     if not last_verified:
         raise SystemExit(f"No last-verified date is available for {args.jurisdiction}")
@@ -60,6 +63,25 @@ def main() -> None:
             "lastVerifiedRecordCount": last_verified_record_count,
             "message": f"{jurisdiction_name} source refresh verified.",
             "sourceUrl": args.source_url or metadata.get("sourceUrl"),
+            "boundaryState": "verified",
+        }
+    elif args.state == "boundary-source-unavailable":
+        verified_date = previous.get("lastVerified") or last_verified
+        jurisdictions[args.jurisdiction] = {
+            "state": "verified",
+            "checkedAt": now,
+            "lastVerified": verified_date,
+            "lastVerifiedRecordCount": (
+                previous.get("lastVerifiedRecordCount") or last_verified_record_count
+            ),
+            "message": (
+                "Mining records remain at the last verified snapshot because the "
+                "territory-boundary source is temporarily unavailable—last verified "
+                f"{datetime.fromisoformat(str(verified_date).replace('Z', '+00:00')).strftime('%B %-d, %Y')}."
+            ),
+            "sourceUrl": args.source_url or previous.get("sourceUrl") or metadata.get("sourceUrl"),
+            "boundaryState": "source-unavailable",
+            "boundaryCheckedAt": now,
         }
     else:
         jurisdictions[args.jurisdiction] = {

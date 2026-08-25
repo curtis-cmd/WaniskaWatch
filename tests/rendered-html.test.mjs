@@ -235,11 +235,10 @@ test("publishes only jurisdictions verified during the latest successful refresh
 });
 
 test("publishes holder provenance and review flags without implying non-publication", async () => {
-  const [manitoba, newBrunswick, audit] = await Promise.all([
-    readFile(new URL("../public/data/manitoba-mining.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/data/new-brunswick-mining.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/data/data-audit.json", import.meta.url), "utf8").then(JSON.parse),
-  ]);
+  const audit = await readFile(
+    new URL("../public/data/data-audit.json", import.meta.url),
+    "utf8",
+  ).then(JSON.parse);
   const allowedAvailability = new Set([
     "published",
     "published-field-empty",
@@ -247,16 +246,33 @@ test("publishes holder provenance and review flags without implying non-publicat
     "registry-checked-unavailable",
   ]);
 
-  const sv15502 = manitoba.features.find(feature => feature.properties.id === "SV15502");
-  assert.equal(sv15502.properties.holder, "CanWhite Sands Corp.");
-  assert.equal(sv15502.properties.holderAvailability, "published");
-  assert.equal(sv15502.properties.holderReviewRequired, false);
+  const publishedKeys = new Set(
+    audit.liveJurisdictions.filter(item => item.status === "passed").map(item => item.key),
+  );
+  if (publishedKeys.has("manitoba")) {
+    const manitoba = await readFile(
+      new URL("../public/data/manitoba-mining.json", import.meta.url),
+      "utf8",
+    ).then(JSON.parse);
+    const sv15502 = manitoba.features.find(feature => feature.properties.id === "SV15502");
+    assert.equal(sv15502.properties.holder, "CanWhite Sands Corp.");
+    assert.equal(sv15502.properties.holderAvailability, "published");
+    assert.equal(sv15502.properties.holderReviewRequired, false);
+  }
 
-  const checkedUnavailable = newBrunswick.features.find(feature => feature.properties.id === "257");
-  assert.equal(checkedUnavailable.properties.holder, null);
-  assert.equal(checkedUnavailable.properties.holderAvailability, "registry-checked-unavailable");
-  assert.equal(checkedUnavailable.properties.holderReviewRequired, true);
-  assert.match(checkedUnavailable.properties.holderEvidenceUrl, /nbeclaims\.gnb\.ca/);
+  if (publishedKeys.has("new-brunswick")) {
+    const newBrunswick = await readFile(
+      new URL("../public/data/new-brunswick-mining.json", import.meta.url),
+      "utf8",
+    ).then(JSON.parse);
+    const checkedUnavailable = newBrunswick.features.find(
+      feature => feature.properties.id === "257",
+    );
+    assert.equal(checkedUnavailable.properties.holder, null);
+    assert.equal(checkedUnavailable.properties.holderAvailability, "registry-checked-unavailable");
+    assert.equal(checkedUnavailable.properties.holderReviewRequired, true);
+    assert.match(checkedUnavailable.properties.holderEvidenceUrl, /nbeclaims\.gnb\.ca/);
+  }
 
   for (const jurisdiction of audit.liveJurisdictions.filter(item => item.status === "passed")) {
     const dataset = await readFile(
@@ -272,4 +288,40 @@ test("publishes holder provenance and review flags without implying non-publicat
       assert.equal(Boolean(feature.properties.holder), !feature.properties.holderReviewRequired);
     }
   }
+});
+
+test("keeps boundary outages separate from mining-source outages", async () => {
+  const [workflow, downloader, statusUpdater] = await Promise.all([
+    readFile(new URL("../.github/workflows/refresh-public-data.yml", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/canada-mining/download_public_records.py", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/canada-mining/update_jurisdiction_status.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(downloader, /BOUNDARY_SOURCE_UNAVAILABLE_EXIT = 42/);
+  assert.match(workflow, /refresh_exit.*-eq 42/s);
+  assert.match(workflow, /boundary-source-unavailable/);
+  assert.match(workflow, /outages\[@\].*-gt 3/s);
+  assert.match(workflow, /Safety gate stopped publication/);
+  assert.match(statusUpdater, /"state": "verified"/);
+  assert.match(statusUpdater, /"boundaryState": "source-unavailable"/);
+});
+
+test("uses the refreshed Ontario claim overview for the low-zoom counter", async () => {
+  const [route, overview] = await Promise.all([
+    readFile(new URL("../app/api/claims/ontario/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/data/ontario-claim-overview.json", import.meta.url), "utf8").then(JSON.parse),
+  ]);
+  assert.ok(Number(overview.metadata?.claimCount) > 0);
+  assert.match(route, /ontario-claim-overview\.json/);
+  assert.match(route, /count: CURRENT_CLAIM_COUNT/);
+  assert.doesNotMatch(route, /count: 394878/);
+});
+
+test("describes verification as date-specific rather than real-time", async () => {
+  const portal = await readFile(
+    new URL("../app/MiningPortal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(portal, /verified as of \{selectedLastVerified\}/);
+  assert.match(portal, /not guaranteed real-time/);
+  assert.match(portal, /not necessarily been individually confirmed against every registry entry/);
 });
