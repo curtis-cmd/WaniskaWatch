@@ -400,6 +400,12 @@ function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function clearRecordUrl() {
+  const url = new URL(window.location.href);
+  for (const key of ["record", "lat", "lng"]) url.searchParams.delete(key);
+  window.history.replaceState({}, "", url);
+}
+
 function geometryCentre(geometry: Geometry): [number, number] {
   const points: Array<[number, number]> = [];
   const visit = (value: unknown) => {
@@ -509,6 +515,12 @@ export default function MiningPortal() {
   const [listLimit, setListLimit] = useState(60);
   const [mapReady, setMapReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<"split" | "map" | "records">("split");
+  const [showBoundaries, setShowBoundaries] = useState(true);
+  const boundariesVisible = useRef(true);
+  const [mapZoom, setMapZoom] = useState<number | null>(null);
+  const pendingLink = useRef<{ record: string; latitude: number; longitude: number } | null>(null);
+  const initialMapView = useRef<[number, number] | null>(null);
   const provinceConfig = provinces[province];
   const allTerritoriesLabel = `All ${provinceConfig.name}`;
   const selectedKey = selected ? activityKey(selected) : null;
@@ -520,13 +532,28 @@ export default function MiningPortal() {
 
   useEffect(() => {
     let active = true;
+    const params = new URLSearchParams(window.location.search);
+    const linkedProvince = params.get("province");
+    const lat = Number(params.get("lat"));
+    const lng = Number(params.get("lng"));
+    if (params.get("record") && params.has("lat") && params.has("lng")
+      && Number.isFinite(lat) && Number.isFinite(lng) && lat >= 40 && lat <= 85 && lng >= -142 && lng <= -50) {
+      pendingLink.current = { record: params.get("record")!, latitude: lat, longitude: lng };
+      initialMapView.current = [lat, lng];
+    }
     fetch(appPath("/data/jurisdiction-status.json"))
       .then(response => {
         if (!response.ok) throw new Error("Jurisdiction verification status unavailable");
         return response.json();
       })
       .then(statuses => {
-        if (active) setJurisdictionStatuses(statuses);
+        if (active) {
+          if (linkedProvince && Object.hasOwn(provinces, linkedProvince)) {
+            setProvince(linkedProvince as ProvinceKey);
+            setTerritory(`All ${provinces[linkedProvince as ProvinceKey].name}`);
+          }
+          setJurisdictionStatuses(statuses);
+        }
       })
       .catch(() => {
         if (active) {
@@ -634,7 +661,7 @@ export default function MiningPortal() {
 
   const territoryNames = useMemo(() => {
     const published = treatyDataset?.features.map(feature => feature.properties.name)
-      || ["Treaty 1", "Treaty 2", "Treaty 3", "Treaty 4", "Treaty 5"];
+      || [];
     const hasUnassigned = activities.some(feature => feature.properties.treaty === "Unassigned");
     return [allTerritoriesLabel, ...published, ...(hasUnassigned ? ["Unassigned"] : [])];
   }, [activities, allTerritoriesLabel, treatyDataset]);
@@ -642,14 +669,6 @@ export default function MiningPortal() {
   const territoryMeta = useMemo(() => new Map(
     treatyDataset?.features.map(feature => [feature.properties.name, feature.properties]) || [],
   ), [treatyDataset]);
-
-  const territoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    activities.forEach(feature => {
-      counts[feature.properties.treaty] = (counts[feature.properties.treaty] || 0) + 1;
-    });
-    return counts;
-  }, [activities]);
 
   const filterOptions = useMemo(() => {
     const unique = (values: Array<string | null | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
@@ -712,6 +731,9 @@ export default function MiningPortal() {
   }, [activities, allTerritoriesLabel, claimOverview, miningDataset, territory]);
 
   const selectTerritory = useCallback((nextTerritory: string) => {
+    clearRecordUrl();
+    pendingLink.current = null;
+    initialMapView.current = null;
     setTerritory(nextTerritory);
     setListLimit(60);
     setSelected(null);
@@ -723,10 +745,10 @@ export default function MiningPortal() {
     const map = mapInstance.current;
     if (!map) return;
     const container = map.getContainer();
-    const isCompact = container.clientWidth < 820;
+    const isCompact = window.matchMedia("(max-width: 560px)").matches;
     const paddingTopLeft: [number, number] = [28, 28];
     const paddingBottomRight: [number, number] = isCompact
-      ? [28, Math.min(330, Math.round(container.clientHeight * 0.48))]
+      ? [28, Math.round(container.clientHeight * 0.70)]
       : [Math.min(470, Math.round(container.clientWidth * 0.46)), 28];
     const featureLayer = activityFeatureLayers.current.get(activityKey(feature));
     const bounds = featureLayer?.getBounds?.();
@@ -754,19 +776,23 @@ export default function MiningPortal() {
   const selectFeature = useCallback((feature: ActivityFeature, moveMap = true) => {
     setSelected(feature);
     setCopied(false);
+    setWorkspaceView(current => current === "records" ? "split" : current);
     if (typeof window !== "undefined") {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.set("record", String(feature.properties.id));
+      nextUrl.searchParams.set("province", province);
+      nextUrl.searchParams.set("lat", feature.properties.latitude.toFixed(5));
+      nextUrl.searchParams.set("lng", feature.properties.longitude.toFixed(5));
       window.history.replaceState({}, "", nextUrl);
     }
-    if (moveMap) frameFeature(feature);
+    if (moveMap) requestAnimationFrame(() => requestAnimationFrame(() => frameFeature(feature)));
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
       requestAnimationFrame(() => requestAnimationFrame(() => mapPanel.current?.scrollIntoView({
         block: "start",
         behavior: prefersReducedMotion() ? "auto" : "smooth",
       })));
     }
-  }, [frameFeature]);
+  }, [frameFeature, province]);
 
   useEffect(() => {
     if (!mapElement.current || mapInstance.current) return;
@@ -785,6 +811,8 @@ export default function MiningPortal() {
         maxZoom: 17,
       }).addTo(map);
       mapInstance.current = map;
+      setMapZoom(map.getZoom());
+      map.on("zoomend", () => setMapZoom(map.getZoom()));
       setMapReady(true);
     });
     return () => { cancelled = true; };
@@ -820,8 +848,12 @@ export default function MiningPortal() {
       }).addTo(mapInstance.current);
       layer.bringToBack();
       treatyLayer.current = layer;
+      if (!boundariesVisible.current) layer.remove();
 
-      if (territory !== allTerritoriesLabel && territory !== "Unassigned") {
+      if (initialMapView.current) {
+        mapInstance.current.setView(initialMapView.current, 12, { animate: false });
+        initialMapView.current = null;
+      } else if (territory !== allTerritoriesLabel && territory !== "Unassigned") {
         const selectedTreaty = treatyDataset.features.find(feature => feature.properties.name === territory);
         if (selectedTreaty) {
           const bounds = L.geoJSON(selectedTreaty).getBounds();
@@ -833,6 +865,31 @@ export default function MiningPortal() {
     });
     return () => { active = false; };
   }, [allTerritoriesLabel, mapReady, provinceConfig.center, provinceConfig.zoom, selectTerritory, treatyDataset, territory]);
+
+  useEffect(() => {
+    boundariesVisible.current = showBoundaries;
+    const map = mapInstance.current;
+    const boundaries = treatyLayer.current;
+    if (!map || !boundaries) return;
+    if (showBoundaries) { boundaries.addTo(map); boundaries.bringToBack(); }
+    else boundaries.remove();
+  }, [showBoundaries]);
+
+  useEffect(() => {
+    if (!mapReady || !pendingLink.current) return;
+    const linked = activities.find(feature => String(feature.properties.id) === pendingLink.current?.record);
+    if (linked) {
+      pendingLink.current = null;
+      setSelected(linked);
+    }
+  }, [activities, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapPanel.current) return;
+    const observer = new ResizeObserver(() => mapInstance.current?.invalidateSize({ pan: false }));
+    observer.observe(mapPanel.current);
+    return () => observer.disconnect();
+  }, [mapReady]);
 
   useEffect(() => {
     const map = mapInstance.current;
@@ -1144,7 +1201,15 @@ export default function MiningPortal() {
       applyActivityLayerState(layer, feature, key === selectedKey ? "selected" : "default");
     });
     if (!selectedKey) return;
-    requestAnimationFrame(() => recordButtons.current.get(selectedKey)?.scrollIntoView({ block: "nearest" }));
+    requestAnimationFrame(() => {
+      const button = recordButtons.current.get(selectedKey);
+      const list = button?.parentElement;
+      if (!button || !list) return;
+      const top = button.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+      if (top < list.scrollTop || top + button.offsetHeight > list.scrollTop + list.clientHeight) {
+        list.scrollTo({ top: Math.max(0, top - 48), behavior: "auto" });
+      }
+    });
   }, [selectedKey]);
 
   function beginTerritoryWatch() {
@@ -1152,6 +1217,12 @@ export default function MiningPortal() {
   }
 
   function changeProvince(nextProvince: ProvinceKey) {
+    clearRecordUrl();
+    pendingLink.current = null;
+    initialMapView.current = null;
+    const url = new URL(window.location.href);
+    url.searchParams.set("province", nextProvince);
+    window.history.replaceState({}, "", url);
     setProvince(nextProvince);
     setDataStatus("loading");
     setMiningDataset(null);
@@ -1174,6 +1245,8 @@ export default function MiningPortal() {
   }
 
   function toggleMineralKind(kind: ActivityKind) {
+    clearRecordUrl();
+    pendingLink.current = null;
     setListLimit(60);
     setSelected(null);
     setCopied(false);
@@ -1192,6 +1265,8 @@ export default function MiningPortal() {
   }
 
   function updateQuery(value: string) {
+    clearRecordUrl();
+    pendingLink.current = null;
     setQuery(value);
     setListLimit(60);
     setSelected(null);
@@ -1199,6 +1274,8 @@ export default function MiningPortal() {
   }
 
   function updateAdvancedFilter(update: () => void) {
+    clearRecordUrl();
+    pendingLink.current = null;
     update();
     setListLimit(60);
     setSelected(null);
@@ -1206,6 +1283,8 @@ export default function MiningPortal() {
   }
 
   function clearAdvancedFilters() {
+    clearRecordUrl();
+    pendingLink.current = null;
     setHolderFilter("");
     setStatusFilter("");
     setRightsFilter("");
@@ -1218,19 +1297,26 @@ export default function MiningPortal() {
   }
 
   function closeSelected() {
+    pendingLink.current = null;
     setSelected(null);
     setCopied(false);
-    if (typeof window !== "undefined") {
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete("record");
-      window.history.replaceState({}, "", nextUrl);
-    }
+    clearRecordUrl();
+  }
+
+  function resetMapView() {
+    closeSelected();
+    initialMapView.current = null;
+    if (territory !== allTerritoriesLabel) setTerritory(allTerritoriesLabel);
+    mapInstance.current?.setView(provinceConfig.center, provinceConfig.zoom, { animate: !prefersReducedMotion() });
   }
 
   async function copySelectedLink() {
     if (!selected || typeof window === "undefined") return;
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.set("record", String(selected.properties.id));
+    nextUrl.searchParams.set("province", province);
+    nextUrl.searchParams.set("lat", selected.properties.latitude.toFixed(5));
+    nextUrl.searchParams.set("lng", selected.properties.longitude.toFixed(5));
     try {
       await navigator.clipboard.writeText(nextUrl.toString());
       setCopied(true);
@@ -1241,7 +1327,7 @@ export default function MiningPortal() {
 
   const publishedContact = selected ? contactFor(selected) : null;
   const identifiedProponents = miningDataset?.metadata.recordedHolderCount
-    ?? new Set(filtered.map(feature => feature.properties.holder).filter(Boolean)).size;
+    ?? new Set(activities.map(feature => feature.properties.holder).filter(Boolean)).size;
   const totalCurrentRecords = miningDataset?.metadata.databaseRecordCount ?? activities.length;
   const loadedMapRecords = activities.length;
   const generatedAt = miningDataset?.metadata.generatedAt;
@@ -1279,80 +1365,39 @@ export default function MiningPortal() {
       <button className="watch-support-button" type="button" onClick={() => supportDialog.current?.showModal()}>Get support</button>
     </header>
 
-    <section className="watch-hero">
+    <section className="watch-hero" aria-label="About Territory Watch">
       <div className="watch-hero-copy">
-        <span className="watch-eyebrow">PUBLIC MINING ACTIVITY · TERRITORIAL CONTEXT</span>
-        <h1>Know what’s happening<br />on the land.</h1>
-        <p>Explore current mining claims, projects and operations by province, territory, treaty area, company or claim—using public records mapped with care.</p>
-        <div className="watch-hero-actions">
-          <button type="button" className="watch-primary-button" onClick={beginTerritoryWatch}>Explore the map</button>
-          <a href="#trust">How to use this information</a>
-        </div>
+        <span className="watch-eyebrow">TERRITORY WATCH / PUBLIC MINING ATLAS</span>
+        <h1>Know what’s happening <em>on the land.</em></h1>
       </div>
-
-      <div className="watch-start-panel" aria-labelledby="start-heading">
-        <div className="watch-start-heading">
-          <span>START WITH PLACE</span>
-          <b>01</b>
-        </div>
-        <h2 id="start-heading">Where do you want to look?</h2>
-        <label>
-          <span>Province or territory</span>
-          <select
-            value={province}
-            onChange={event => changeProvince(event.target.value as ProvinceKey)}
-            aria-describedby="coverage-note"
-          >
-            {publishedProvinceKeys.sort((left, right) => provinces[left].name.localeCompare(provinces[right].name)).map(key => (
-              <option key={key} value={key}>{provinces[key].name}</option>
-            ))}
-          </select>
-        </label>
-        <p id="coverage-note">
-          <strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong>{" "}
-          Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.
-        </p>
-        <fieldset>
-          <legend>Choose a published geographic view</legend>
-          <div className="watch-place-options">
-            {territoryNames.map(item => <button
-              key={item}
-              type="button"
-              aria-pressed={territory === item}
-              className={territory === item ? "active" : ""}
-              onClick={() => selectTerritory(item)}
-            >
-              <span>{territoryLabel(item)}</span>
-              <small>{item === allTerritoriesLabel
-                ? (miningDataset?.metadata.databaseRecordCount || activities.length).toLocaleString("en-CA")
-                : (miningDataset?.metadata.treatyCounts?.[item] || territoryCounts[item] || 0).toLocaleString("en-CA")} records</small>
-            </button>)}
-          </div>
-        </fieldset>
-        <div className="watch-start-search">
-          <label htmlFor="start-search">Or search a project, company or claim</label>
-          <div>
-            <input id="start-search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Name, holder or record number" />
-            <button type="button" onClick={beginTerritoryWatch}>Search</button>
-          </div>
-        </div>
-        <p className="watch-future-entry"><b>Current publication:</b> {publishedProvinceKeys.length} jurisdictions are available from government sources verified during the latest successful refresh. Unavailable jurisdictions return only after their source can be verified again.</p>
+      <div className="watch-atlas-intro">
+        <p>A free resource for Nations and communities. Explore public mining records in the places that matter to you.</p>
+        <button type="button" onClick={beginTerritoryWatch}>Explore the map <span aria-hidden="true">↓</span></button>
       </div>
     </section>
 
     <section className="watch-snapshot" aria-label="Current data coverage">
-      <div><span>VERIFIED AS OF</span><strong>{updated}</strong></div>
+      <div><span>VERIFIED AS OF</span><strong>{dataStatus === "ready" ? updated : "Loading…"}</strong></div>
       <div className="watch-record-snapshot">
         <span>TOTAL CURRENT RECORDS</span>
-        <strong>{totalCurrentRecords.toLocaleString("en-CA")}</strong>
-        <small>{loadedMapRecords.toLocaleString("en-CA")} loaded at this map view</small>
+        <strong>{dataStatus === "ready" ? totalCurrentRecords.toLocaleString("en-CA") : "—"}</strong>
+        <small>{dataStatus === "ready" ? `${loadedMapRecords.toLocaleString("en-CA")} loaded at this map view` : "Loading public records…"}</small>
       </div>
-      <div><span>RECORDED HOLDERS</span><strong>{identifiedProponents.toLocaleString("en-CA")}</strong></div>
+      <div><span>RECORDED HOLDERS</span><strong>{dataStatus === "ready" ? identifiedProponents.toLocaleString("en-CA") : "—"}</strong><small>In loaded records</small></div>
       <div><span>CURRENT COVERAGE</span><strong>{provinceConfig.name}</strong></div>
-      <p><i /> Verified government-source records · current activity only · no account required</p>
+      <p>Current activity only<br />No account required</p>
     </section>
 
     <section className="territory-watch-section" id="territory-watch" aria-labelledby="territory-watch-title">
+      <div className="watch-location-bar">
+        <div className="watch-location-heading"><span className="watch-eyebrow">01 / FIND YOUR PLACE</span><strong>Where do you want to look?</strong></div>
+        <label><span>Province or territory</span><select value={province} onChange={event => changeProvince(event.target.value as ProvinceKey)} aria-describedby="coverage-note" disabled={!jurisdictionStatuses}>
+          {publishedProvinceKeys.sort((left, right) => provinces[left].name.localeCompare(provinces[right].name)).map(key => <option key={key} value={key}>{provinces[key].name}</option>)}
+        </select></label>
+        <label><span>Published geographic view</span><select value={territory} onChange={event => selectTerritory(event.target.value)} disabled={dataStatus !== "ready"}>
+          {territoryNames.map(item => <option key={item} value={item}>{territoryLabel(item)}</option>)}
+        </select></label>
+      </div>
       <div className="territory-watch-heading">
         <div>
           <span className="watch-eyebrow">TERRITORY WATCH · {provinceConfig.name.toUpperCase()}</span>
@@ -1364,21 +1409,28 @@ export default function MiningPortal() {
         </div>
       </div>
 
-      <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
-        <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
-        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the information notice.</a></span>
-      </aside>
-
-      <div className="territory-watch-workspace">
+      <div className="watch-workspace-toolbar" aria-label="Map display controls">
+        <div className="watch-view-switch" role="group" aria-label="Workspace view">
+          <button type="button" aria-pressed={workspaceView === "split"} onClick={() => setWorkspaceView("split")}>Map & records</button>
+          <button type="button" aria-pressed={workspaceView === "map"} onClick={() => setWorkspaceView("map")}>Map only</button>
+          <button type="button" aria-pressed={workspaceView === "records"} onClick={() => setWorkspaceView("records")}>Records only</button>
+        </div>
+        <div className="watch-map-tools">
+          <button type="button" aria-pressed={showBoundaries} onClick={() => setShowBoundaries(value => !value)} disabled={!mapReady}>{showBoundaries ? "Hide boundaries" : "Show boundaries"}</button>
+          <button type="button" onClick={resetMapView} disabled={!mapReady}>Reset map view</button>
+        </div>
+      </div>
+      <div className={`territory-watch-workspace watch-view-${workspaceView}`}>
         <aside className="territory-watch-controls" aria-label="Map filters and accessible record list">
           <div className="watch-filter-section">
-            <div className="watch-section-label"><span>FILTER CURRENT ACTIVITY</span><b aria-live="polite">{isWaitingForViewportClaims ? "Zoom in" : filtered.length.toLocaleString("en-CA")}</b></div>
+            <div className="watch-section-label"><span>02 / EXPLORE ACTIVITY</span><b aria-live="polite">{dataStatus !== "ready" ? "…" : isWaitingForViewportClaims ? "Zoom in" : `${filtered.length.toLocaleString("en-CA")} matches`}</b></div>
             <label className="watch-map-search">
               <span>Search public mining records</span>
               <div>
                 <input value={query} onChange={event => updateQuery(event.target.value)} placeholder="Claim, project, holder…" />
                 {query && <button type="button" onClick={() => updateQuery("")} aria-label="Clear search">×</button>}
               </div>
+              {usesViewportClaims && <small className="watch-search-scope">Searches records loaded in this view. Zoom into an area to load its claims.</small>}
             </label>
           </div>
 
@@ -1388,7 +1440,7 @@ export default function MiningPortal() {
               <input type="checkbox" checked={activeMineralKinds.has(kind)} onChange={() => toggleMineralKind(kind)} />
               <i style={{ background: kindMeta[kind].color }} aria-hidden="true">{kindMeta[kind].marker}</i>
               <span>{kindMeta[kind].short}</span>
-              <small>{mineralCounts[kind].toLocaleString("en-CA")}</small>
+              <small>{dataStatus === "ready" ? mineralCounts[kind].toLocaleString("en-CA") : "—"}</small>
             </label>)}
           </fieldset>
 
@@ -1446,6 +1498,14 @@ export default function MiningPortal() {
               type="button"
               className={selectedKey === activityKey(feature) ? "active" : ""}
               onClick={() => selectFeature(feature)}
+              onMouseEnter={() => {
+                const layer = activityFeatureLayers.current.get(activityKey(feature));
+                if (layer) applyActivityLayerState(layer, feature, selectedKey === activityKey(feature) ? "selected" : "hover");
+              }}
+              onMouseLeave={() => {
+                const layer = activityFeatureLayers.current.get(activityKey(feature));
+                if (layer) applyActivityLayerState(layer, feature, selectedKey === activityKey(feature) ? "selected" : "default");
+              }}
               ref={element => {
                 const key = activityKey(feature);
                 if (element) recordButtons.current.set(key, element);
@@ -1465,15 +1525,19 @@ export default function MiningPortal() {
         <div className="territory-watch-map-wrap" ref={mapPanel}>
           <p className="sr-only" id="map-description">The interactive map is paired with an accessible record list. Hover or tap a mining feature to identify it, then select it for full details. Treaty polygons are historic government-published geographic indexes and are not legal or consultation determinations.</p>
           <div ref={mapElement} className="territory-watch-map" role="region" aria-label={`Map of public ${provinceConfig.name} mining activity`} aria-describedby="map-description" />
-          <div className="watch-map-legend" aria-label="Map legend">
-            <strong>MAP LEGEND</strong>
+          <details className="watch-map-legend" aria-label="Map legend">
+            <summary>Map key <span aria-hidden="true">+</span></summary>
+            <div>
             {mineralKinds.map(kind => <span key={kind}><i style={{ color: kindMeta[kind].color }} aria-hidden="true">{kindMeta[kind].marker}</i>{kindMeta[kind].short}</span>)}
             <span><i className="boundary-symbol" aria-hidden="true" />Historic treaty boundary</span>
             {usesViewportClaims && claimOverview && <span><i className="claim-overview-symbol" aria-hidden="true" />Claim activity overview</span>}
             <small>{usesViewportClaims && claimOverview
               ? "Gold circles summarize current claims at province scale. Select one to load exact boundaries."
               : "Hover or tap a claim to identify it. Select for full details."}</small>
-          </div>
+            </div>
+          </details>
+          {!selected && <div className="watch-map-hint">{dataStatus === "ready" ? "Select a feature to inspect its public record" : "Loading verified-source records…"}</div>}
+          <div className="watch-map-scale" aria-label="Map detail level">{mapZoom == null ? "Loading map…" : `Zoom ${mapZoom} · ${usesViewportClaims && mapZoom < (claimDetailZoom[province] ?? 0) ? "Activity overview" : "Record detail"}`}</div>
           <div className="watch-map-source">Boundary source: {treatyDataset?.metadata.source || "Manitoba Land Initiative"} · retrieved {boundaryUpdated}</div>
           {usesViewportClaims && claimViewportNote && <div className="watch-map-source watch-claim-load-note" role="status">{claimViewportNote}</div>}
 
@@ -1485,6 +1549,7 @@ export default function MiningPortal() {
             <div className="watch-record-status"><b>{readableStatus(selected.properties.status)}</b><span>Published status</span></div>
             <h3 id="record-title">{selected.properties.name || selected.properties.id}</h3>
             <p>Public record ID {selected.properties.id}</p>
+            <button className="watch-locate-record" type="button" onClick={() => frameFeature(selected)}>Locate this record on the map <span aria-hidden="true">↗</span></button>
             {selected.properties.description && <p className="watch-record-description">{selected.properties.description}</p>}
             <dl>
               <div><dt>Province</dt><dd>{provinceConfig.name}</dd></div>
@@ -1536,6 +1601,13 @@ export default function MiningPortal() {
           </article>}
         </div>
       </div>
+      <div className="watch-coverage-note" id="coverage-note" role="status">
+        {dataStatus === "ready" ? <><strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong> Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.</> : dataStatus === "error" ? "Coverage could not be loaded. Use the official sources below to verify current information." : "Loading coverage and source verification dates…"}
+      </div>
+      <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
+        <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
+        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the information notice.</a></span>
+      </aside>
     </section>
 
     <section className="watch-trust-section" id="trust">

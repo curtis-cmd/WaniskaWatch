@@ -155,7 +155,7 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /Gold circles summarize current/i);
   assert.match(portal, /Claim activity overview/i);
   assert.match(portal, /claim-overview\.json/i);
-  assert.match(portal, /scrollIntoView\(\{ block: "nearest" \}\)/);
+  assert.match(portal, /list\.scrollTo/);
   assert.match(portal, /isCurrentActivity/);
   assert.match(portal, /assessment file/);
   assert.match(portal, /Current activity only/i);
@@ -324,4 +324,30 @@ test("describes verification as date-specific rather than real-time", async () =
   assert.match(portal, /verified as of \{selectedLastVerified\}/);
   assert.match(portal, /not guaranteed real-time/);
   assert.match(portal, /not necessarily been individually confirmed against every registry entry/);
+});
+
+test("renders an accessible map-first workspace without false loading counts", async () => {
+  const html = await (await render()).text();
+  assert.match(html, /Map &amp; records/);
+  assert.match(html, /Map only/);
+  assert.match(html, /Records only/);
+  assert.match(html, /Reset map view/);
+  assert.match(html, /Hide boundaries/);
+  assert.match(html, /Published geographic view/);
+  assert.match(html, /Loading coverage and source verification dates/);
+  assert.doesNotMatch(html, /coverage is verified as of.*Not available/);
+  assert.ok(html.indexOf('aria-label="Map display controls"') < html.indexOf('aria-label="Important non-reliance notice"'));
+});
+
+test("keeps shared records province-specific and clears selection on new searches", async () => {
+  const portal = await readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8");
+  assert.match(portal, /nextUrl\.searchParams\.set\("province", province\)/);
+  assert.match(portal, /params\.get\("province"\)/);
+  assert.match(portal, /Number\.isFinite\(lat\)/);
+  for (const method of ["changeProvince", "toggleMineralKind", "updateQuery", "updateAdvancedFilter", "clearAdvancedFilters", "closeSelected"]) {
+    const body = portal.split(`function ${method}(`)[1]?.split("\n  }")[0];
+    assert.ok(body?.includes("clearRecordUrl()"), `${method} must clear the previous record link`);
+  }
+  assert.match(portal, /ResizeObserver/);
+  assert.match(portal, /Locate this record on the map/);
 });
