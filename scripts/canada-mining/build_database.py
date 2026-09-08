@@ -364,7 +364,7 @@ def main() -> None:
         province=province_name,
         name=province_source["source_name"],
         url=province_source["source_url"],
-        retrieved_at=retrieved_at,
+        retrieved_at=province_source.get("retrieved_at", retrieved_at),
         notes="Used to clip published treaty polygons to the selected province.",
     )
     territory_source = manifest["territory_boundary"]
@@ -373,7 +373,7 @@ def main() -> None:
         province=province_name,
         name=territory_source["source_name"],
         url=territory_source["source_url"],
-        retrieved_at=retrieved_at,
+        retrieved_at=territory_source.get("retrieved_at", retrieved_at),
         notes=(
             "Government-published treaty or agreement geography used as a contextual index only; "
             "not a rights, title, traditional-territory, consultation, or consent determination."

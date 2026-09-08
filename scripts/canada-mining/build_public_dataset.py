@@ -292,7 +292,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     territory_source = raw_manifest["territory_boundary"]
     treaty_payload = {
         "metadata": {
-            "generatedAt": generated_at,
+            "generatedAt": territory_source.get("retrieved_at", raw_manifest["retrieved_at"]),
             "source": territory_source["source_name"],
             "sourceUrl": territory_source["source_url"],
             "boundaryNote": (

@@ -48,3 +48,6 @@ scripts/canada-mining/vendor/
 scripts/canada-mining/__pycache__/
 data/*-mining/raw/
 data/*-mining/processed/
+data/refresh-baseline.json
+data/audits/
+tests/__pycache__/

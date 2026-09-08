@@ -257,6 +257,8 @@ def main() -> None:
             if not (raw_dir / filename).exists():
                 raise RuntimeError(f"--mining-only requires {raw_dir / filename}")
             manifest[key] = previous_manifest[key]
+            manifest[key].setdefault("retrieved_at", previous_manifest["retrieved_at"])
+        manifest["boundary_mode"] = "previously-verified-cache"
     else:
         try:
             province_name, province_url, province_layer = STATCAN_PROVINCES

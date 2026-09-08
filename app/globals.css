@@ -26,16 +26,41 @@
 .national-toolbar button[aria-pressed="true"] { background: var(--watch-forest-dark); color: white; }
 .national-toolbar [role="status"] { font-size: 14px; }
 .national-sheet { max-width: 1544px; margin: 0 auto; border: 1px solid var(--watch-line); background: white; }
-.national-heading { padding: 28px 36px; display: flex; gap: 28px; justify-content: space-between; align-items: center; border-top: 5px solid var(--watch-forest-dark); }
-.national-heading h1 { font: 500 clamp(30px, 3.4vw, 52px)/1.12 Georgia, serif; margin: 8px 0; letter-spacing: -.035em; }
+.national-heading { padding: 20px 28px; display: flex; gap: 28px; justify-content: space-between; align-items: center; border-top: 5px solid var(--watch-forest-dark); }
+.national-heading h1 { font: 500 clamp(28px, 2.6vw, 40px)/1.12 Georgia, serif; margin: 8px 0; letter-spacing: -.035em; }
 .national-heading p { margin: 0; font-size: 18px; }
 .national-total { display: flex; flex-direction: column; text-align: right; gap: 4px; }
-.national-total strong { font: 500 clamp(32px, 4vw, 58px)/1 Georgia, serif; font-variant-numeric: tabular-nums; }
+.national-total strong { font: 500 clamp(30px, 3vw, 44px)/1 Georgia, serif; font-variant-numeric: tabular-nums; }
 .national-total span { font-size: 16px; }
 .national-total small { font-size: 14px; color: var(--watch-muted); }
 .national-map-wrap { position: relative; }
-.national-map { height: clamp(460px, 62vh, 760px); background: #d9e7e8; z-index: 0; }
-.national-map .leaflet-tile-pane { filter: saturate(.55); }
+.national-workspace { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 580px; border-top: 1px solid var(--watch-line); }
+.national-workspace:fullscreen { width: 100vw; height: 100dvh; background: var(--watch-paper); padding: 0; }
+.national-workspace:fullscreen .national-map { height: 100dvh; }
+.national-workspace:fullscreen .national-picker { max-height: 100dvh; }
+.national-map { height: clamp(580px, 68vh, 900px); background: #edf2f3; z-index: 0; }
+.national-map .leaflet-tile-pane { filter: saturate(.3) contrast(.95); }
+.national-picker { padding: 24px; background: #fff; border-right: 1px solid var(--watch-line); max-height: 900px; overflow: auto; }
+.national-picker > label { display: block; margin: 22px 0 8px; font-weight: 650; font-size: 14px; }
+.national-picker select { width: 100%; padding: 12px 8px; border: 1px solid #8b9f99; background: var(--watch-paper); min-height: 48px; font-size: 16px; border-radius: 0; }
+.national-selection { margin: 24px 0; border-top: 3px solid var(--watch-forest); padding-top: 18px; }
+.national-selection h2 { margin: 0 0 14px; font: 500 27px/1.2 Georgia,serif; }
+.national-selection > strong { display: block; font: 500 36px/1.2 Georgia,serif; }
+.national-selection > span { display: block; font-size: 14px; }
+.national-selection p, .national-picker-note p { font-size: 14px; line-height: 1.6; color: #4a605b; }
+.national-open-records { display: block; background: var(--watch-forest-dark); color: white; padding: 14px; text-decoration: none; font-weight: 650; line-height: 1.4; margin-top: 18px; }
+.national-quick-list { border-block: 1px solid var(--watch-line); padding: 16px 0; }
+.national-quick-list summary { cursor: pointer; font-size: 14px; font-weight: 650; }
+.national-quick-list a { display: flex; justify-content: space-between; padding: 12px 0; font-size: 14px; text-decoration: none; border-bottom: 1px solid var(--watch-line); }
+.national-picker-note { padding-top: 22px; font-size: 14px; }
+.national-navigation { position: absolute; top: 18px; right: 18px; z-index: 400; display: flex; flex-direction: column; align-items: stretch; background: white; border: 1px solid #aabbb5; box-shadow: 0 3px 12px #172d2b18; }
+.national-navigation button { min-width: 52px; min-height: 48px; border: 0; border-bottom: 1px solid var(--watch-line); color: var(--watch-forest-dark); background: white; font-size: 25px; }
+.national-navigation button:hover { background: var(--watch-paper-deep); }
+.national-navigation button:disabled { opacity: .4; cursor: default; }
+.national-navigation button span { display: block; font-size: 12px; line-height: 1.4; padding-bottom: 4px; }
+.national-navigation label { height: 100px; display: flex; align-items: center; justify-content: center; }
+.national-navigation input { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 84px; accent-color: var(--watch-forest); }
+.national-boundary-warning { position: absolute; top: 15px; left: 16px; max-width: 330px; z-index: 400; background: white; padding: 12px; }
 .national-map-key { position: absolute; z-index: 400; left: 16px; bottom: 32px; background: rgba(255,255,255,.96); border-left: 4px solid var(--watch-claim-gold); padding: 12px 16px; font-size: 14px; pointer-events: none; }
 .national-map-key > span { color: #9a6120; margin-right: 5px; }
 .national-map-key small { font-size: 12px; }
@@ -59,9 +84,13 @@
 .national-unavailable p { margin: 4px 0; }
 .national-information { margin: 28px 0 14px; }
 .national-presentation .national-sources { display: none; }
-.national-presentation .national-map { height: min(66vh, 960px); }
+.national-presentation .national-map { height: min(72vh, 960px); }
+.national-presentation .national-picker { display: none; }
+.national-presentation .national-workspace { grid-template-columns: 1fr; }
 .national-presentation .national-sheet { max-width: 1800px; }
 @media (max-width: 900px) {
+  .national-workspace { grid-template-columns: 250px minmax(0, 1fr); }
+  .national-picker { padding: 18px; }
   .national-jurisdictions { grid-template-columns: repeat(2, 1fr); }
   .national-heading { padding: 24px; }
   .national-caption { grid-template-columns: 1fr; gap: 10px; }
@@ -69,6 +98,14 @@
   .national-page .watch-header nav { gap: 14px; }
 }
 @media (max-width: 600px) {
+  .national-workspace { grid-template-columns: 1fr; }
+  .national-picker { max-height: none; border-right: 0; }
+  .national-selection { margin: 14px 0; padding-top: 12px; }
+  .national-selection h2, .national-selection > strong { display: inline-block; margin-right: 12px; font-size: 24px; }
+  .national-picker-note { display: none; }
+  .national-navigation { right: 10px; top: 10px; }
+  .national-workspace:fullscreen { display: block; overflow: auto; }
+  .national-workspace:fullscreen .national-picker { display: none; }
   .national-toolbar { padding: 14px; }
   .national-toolbar > div { margin-left: 0; flex-wrap: wrap; }
   .national-heading { align-items: flex-start; flex-direction: column; gap: 18px; }

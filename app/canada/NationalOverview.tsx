@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Map as LeafletMap } from "leaflet";
+import type { Map as LeafletMap, GeoJSON, CircleMarker } from "leaflet";
+import type { FeatureCollection } from "geojson";
 
 type Overview = {
   metadata: { claimCount: number; oldestVerified: string | null; newestVerified: string | null; auditedAt: string; note: string };
@@ -16,28 +17,94 @@ const date = (value: string | null) => value ? new Date(value).toLocaleDateStrin
 export default function NationalOverview({ data }: { data: Overview }) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
+  const workspace = useRef<HTMLDivElement>(null);
+  const outlines = useRef<Map<string, GeoJSON>>(new Map());
+  const markers = useRef<Array<{province: string; marker: CircleMarker}>>([]);
+  const [focused, setFocused] = useState("");
+  const [zoom, setZoom] = useState(3);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [boundaryError, setBoundaryError] = useState(false);
   const [presentation, setPresentation] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [ready, setReady] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
   const [ageDays, setAgeDays] = useState<number | null>(null);
+  const chosen = data.jurisdictions.find(j => j.key === focused);
+
+  function focusProvince(key: string) {
+    setFocused(key);
+    if (!key) map.current?.fitBounds([[41.5, -141], [83.2, -52]], { padding: [18, 18] });
+    else {
+      const outline = outlines.current.get(key);
+      if (outline) map.current?.fitBounds(outline.getBounds(), { padding: [36, 36], maxZoom: 7 });
+    }
+  }
+
+  useEffect(() => {
+    for (const {province, marker} of markers.current) marker.setStyle({fillOpacity: !focused || province === focused ? .85 : .12, opacity: !focused || province === focused ? .9 : .15});
+    outlines.current.forEach((outline,key) => outline.setStyle({color: focused === key ? "#174e48" : "#718d88", weight: focused === key ? 2.5 : 1, fillColor: focused === key ? "#c3d8c8" : "#e1e8df", fillOpacity: 1}));
+  }, [focused, ready]);
+
+  useEffect(() => {
+    const update = () => { setFullscreen(document.fullscreenElement === workspace.current); map.current?.invalidateSize(); };
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (workspace.current?.requestFullscreen) await workspace.current.requestFullscreen();
+      else setCopyMessage("Full screen is not available in this browser. Use Presentation view instead.");
+    } catch { setCopyMessage("Full screen is not available here. Use Presentation view instead."); }
+  }
 
   useEffect(() => {
     let stopped = false;
     let observer: ResizeObserver | undefined;
+    const boundaryRequest = new AbortController();
+    const outlineRegistry = outlines.current;
     const timer = window.setTimeout(() => {
       if (data.metadata.oldestVerified) setAgeDays(Math.floor((Date.now() - Date.parse(data.metadata.oldestVerified)) / 86400000));
       setPresentation(new URLSearchParams(window.location.search).get("presentation") === "1");
     }, 0);
-    import("leaflet").then(L => {
+    import("leaflet").then(async L => {
       if (stopped || !element.current) return;
-      const instance = L.map(element.current, { preferCanvas: true, minZoom: 2, maxZoom: 10, scrollWheelZoom: false, zoomSnap: 0.25 });
+      // Keep Canada's silhouette readable without Mercator's enlarged Arctic.
+      // Detailed street/terrain context remains available in the provincial maps.
+      const instance = L.map(element.current, { crs: L.CRS.EPSG4326, preferCanvas: true, zoomControl: false, minZoom: 2, maxZoom: 10, scrollWheelZoom: true, zoomSnap: 0.25, maxBounds: [[35,-155],[87,-40]], maxBoundsViscosity: .7 });
       map.current = instance;
       const fit = () => instance.fitBounds([[41.5, -141], [83.2, -52]], { padding: [18, 18], animate: false });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: 'Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).on("tileerror", () => { if (!stopped) setMapError(true); }).addTo(instance);
+      instance.attributionControl.addAttribution('<a href="https://geo.statcan.gc.ca/geo_wa/rest/services/2021/Cartographic_boundary_files/MapServer/0">Statistics Canada · 2021 boundaries</a>');
+      L.control.scale({imperial:false, position:"bottomright"}).addTo(instance);
+      instance.createPane("provinceOutlines");
+      instance.getPane("provinceOutlines")!.style.zIndex = "390";
+      instance.on("zoomend", () => { if (!stopped) setZoom(instance.getZoom()); });
+      fit();
+      observer = new ResizeObserver(() => instance.invalidateSize({pan: false}));
+      observer.observe(element.current);
+      const boundaryTimeout = window.setTimeout(() => boundaryRequest.abort(), 20000);
+      try {
+        const response = await fetch(path("/data/canada-provinces.json"), {signal: boundaryRequest.signal});
+        if (!response.ok) throw new Error("Province outlines unavailable");
+        const boundaries = await response.json() as FeatureCollection;
+        if (stopped) return;
+        for (const feature of boundaries.features) {
+          const key = String(feature.properties?.key ?? "");
+          const layer = L.geoJSON(feature, {pane:"provinceOutlines",style:{color:"#718d88",weight:1,fillColor:"#e1e8df",fillOpacity:1}}).addTo(instance);
+          const label = document.createElement("span");
+          label.textContent = String(feature.properties?.name ?? key);
+          layer.bindTooltip(label, {sticky:true});
+          layer.on("click", () => {
+            if (data.jurisdictions.some(j => j.key === key)) {
+              setFocused(key); instance.fitBounds(layer.getBounds(), {padding:[36,36], maxZoom:7});
+            } else setCopyMessage(`${label.textContent}: claim coverage is not confirmed, not a verified zero.`);
+          });
+          outlineRegistry.set(key, layer);
+        }
+      } catch { if (!stopped) setBoundaryError(true); }
+      finally { window.clearTimeout(boundaryTimeout); }
+      if (stopped) return;
       for (const feature of data.features) {
         const { count, name, province } = feature.properties;
         const [longitude, latitude] = feature.geometry.coordinates;
@@ -52,17 +119,17 @@ export default function NationalOverview({ data }: { data: Overview }) {
         link.href = path(`/?province=${encodeURIComponent(province)}#territory-watch`);
         link.textContent = `Explore ${name} records →`;
         content.append(heading, detail, link);
-        L.circleMarker([latitude, longitude], {
-          radius: Math.min(18, 2.5 + Math.sqrt(count) * 0.14),
-          color: "#624023", weight: 0.7, fillColor: "#ce913d", fillOpacity: 0.76,
+        const marker = L.circleMarker([latitude, longitude], {
+          radius: Math.min(9, 1.8 + Math.log10(count + 1) * 1.8),
+          color: "#765324", weight: 0.6, fillColor: "#ce913d", fillOpacity: 0.85,
         }).bindTooltip(label).bindPopup(content).addTo(instance);
+        marker.on("click", () => setFocused(province));
+        markers.current.push({province, marker});
       }
       fit();
-      observer = new ResizeObserver(() => { instance.invalidateSize(); fit(); });
-      observer.observe(element.current);
       setReady(true);
     }).catch(() => { if (!stopped) setMapError(true); });
-    return () => { stopped = true; window.clearTimeout(timer); observer?.disconnect(); map.current?.remove(); map.current = null; };
+    return () => { stopped = true; boundaryRequest.abort(); window.clearTimeout(timer); observer?.disconnect(); map.current?.remove(); map.current = null; outlineRegistry.clear(); markers.current = []; };
   }, [data]);
 
   async function copyLink() {
@@ -85,15 +152,40 @@ export default function NationalOverview({ data }: { data: Overview }) {
     </div>
     <section className="national-sheet" aria-labelledby="national-title">
       <div className="national-heading">
-        <div><span className="watch-eyebrow">WANISKÂ WATCH / CANADA-WIDE OVERVIEW</span><h1 id="national-title">The bigger picture.</h1><p>Published mining claims across Canada.</p></div>
+        <div><span className="watch-eyebrow">WANISKÂ WATCH / CANADA-WIDE OVERVIEW</span><h1 id="national-title">Explore the land. Start here.</h1><p>Select a province or territory to begin.</p></div>
         <div className="national-total"><strong>{number(data.metadata.claimCount)}</strong><span>claims in published snapshots</span><small>{data.jurisdictions.length} provinces and territories represented</small></div>
       </div>
-      <div className="national-map-wrap">
+      <div className="national-workspace" ref={workspace}>
+        <aside className="national-picker" aria-label="Choose a province or territory">
+          <span className="watch-eyebrow">FIND YOUR PLACE</span>
+          <label htmlFor="national-province">Province or territory</label>
+          <select id="national-province" value={focused} onChange={event => focusProvince(event.target.value)}>
+            <option value="">Canada · All available claims</option>
+            {data.jurisdictions.map(j => <option key={j.key} value={j.key}>{j.name}</option>)}
+          </select>
+          <div className="national-selection" aria-live="polite">
+            <h2>{chosen?.name ?? "Canada"}</h2>
+            <strong>{number(chosen?.count ?? data.metadata.claimCount)}</strong><span>claims in published snapshots</span>
+            <p>Verified as of {date(chosen?.verifiedAt ?? data.metadata.oldestVerified)}. Not real-time.</p>
+            {chosen ? <a className="national-open-records" href={path(`/?province=${chosen.key}#territory-watch`)}>Explore {chosen.name} records →</a> : <p>Choose an area above or select an outline on the map. Then open its detailed records.</p>}
+          </div>
+          <details className="national-quick-list"><summary>Browse all provinces & territories</summary>{data.jurisdictions.map(j => <a key={j.key} href={path(`/?province=${j.key}#territory-watch`)}>{j.name}<span>→</span></a>)}</details>
+          <div className="national-picker-note"><b>Claims are not operating mines.</b><p>Grouped locations are for orientation. Open the provincial map for available claim boundaries, holders and sources.</p></div>
+        </aside>
+        <div className="national-map-wrap">
         <div ref={element} className="national-map" role="region" aria-label="Canada-wide map of grouped published mining claims" aria-describedby="national-map-key" />
         {!ready && !mapError && <p className="national-map-message" role="status">Loading the Canada-wide map…</p>}
         {mapError && <p className="national-map-message" role="alert">The background map could not fully load. Locations may lack geographic context; use the province links below or reload this page.</p>}
-        <div className="national-map-key" id="national-map-key"><span aria-hidden="true">●</span> Larger circles = more claims<br /><small>Grouped locations—not claim boundaries</small></div>
-        <button className="national-reset" type="button" disabled={!ready} onClick={() => map.current?.fitBounds([[41.5, -141], [83.2, -52]], { padding: [18, 18] })}>Show all Canada</button>
+        {boundaryError && <p className="national-boundary-warning" role="status">Province outlines unavailable. Use the province chooser.</p>}
+        <div className="national-map-key" id="national-map-key"><span aria-hidden="true">●</span> Grouped claim locations · larger = more claims<br /><small>Not claim or treaty boundaries · verified as of {date(data.metadata.oldestVerified)}</small></div>
+        <div className="national-navigation" role="group" aria-label="Canada map navigation">
+          <button type="button" aria-label="Zoom in" disabled={!ready || zoom >= 10} onClick={() => map.current?.zoomIn()}>+</button>
+          <label><span className="sr-only">Map zoom level</span><input type="range" min="2" max="10" step="0.25" value={zoom} disabled={!ready} onChange={event => map.current?.setZoom(Number(event.target.value))} /></label>
+          <button type="button" aria-label="Zoom out" disabled={!ready || zoom <= 2} onClick={() => map.current?.zoomOut()}>−</button>
+          <button type="button" disabled={!ready} onClick={() => focusProvince("")} aria-label="Reset to all Canada">↺<span>Canada</span></button>
+          <button type="button" disabled={!ready} onClick={toggleFullscreen} aria-label={fullscreen ? "Exit full screen" : "Full screen map"}>⛶<span>{fullscreen ? "Exit" : "Expand"}</span></button>
+        </div>
+        </div>
       </div>
       <div className="national-caption">
         <span><b>Verified as of {date(data.metadata.oldestVerified)}{data.metadata.oldestVerified?.slice(0, 10) !== data.metadata.newestVerified?.slice(0, 10) ? ` – ${date(data.metadata.newestVerified)}` : ""}.</b> Not real-time. {ageDays !== null && ageDays > 7 ? `Oldest snapshot is ${ageDays} days old; re-verification is needed.` : "Verify current status with the responsible authority."}</span>

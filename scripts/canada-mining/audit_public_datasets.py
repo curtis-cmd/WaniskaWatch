@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import argparse
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from config import PROVINCES
+from refresh_baseline import verify_retained
 
 INACTIVE = re.compile(
     r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
@@ -41,7 +43,13 @@ def canonical_raw_count(raw_dir: Path, layer: dict[str, Any]) -> int:
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[2]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--jurisdiction", choices=["manitoba", *PROVINCES.keys()])
+    parser.add_argument("--check-only", action="store_true", help="Validate without replacing the public audit")
+    parser.add_argument("--report", type=Path, help="Optional separate audit evidence file (including for check-only runs)")
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2], help="Dataset root, including an isolated verification workspace")
+    args = parser.parse_args()
+    root = args.root.resolve()
     public_root = root / "public" / "data"
     audited_at = datetime.now(timezone.utc)
     audits: list[dict[str, Any]] = []
@@ -54,9 +62,12 @@ def main() -> None:
 
     dataset_keys = ["manitoba", *PROVINCES.keys()]
     for key in dataset_keys:
+        if args.jurisdiction and key != args.jurisdiction:
+            continue
         dataset_path = public_root / f"{key}-mining.json"
         source_status = source_statuses.get(key) or {}
         source_unavailable = source_status.get("state") == "source-unavailable"
+        retained_boundary = source_status.get("boundaryState") == "source-unavailable" and not source_unavailable
         if not dataset_path.exists():
             if source_unavailable:
                 audits.append(
@@ -82,6 +93,8 @@ def main() -> None:
                         "issues": [],
                     }
                 )
+            if not source_unavailable:
+                raise RuntimeError(f"Missing public dataset without an unavailable status: {key}")
             continue
         payload = json.loads(dataset_path.read_text(encoding="utf-8"))
         metadata = payload.get("metadata") or {}
@@ -155,11 +168,23 @@ def main() -> None:
                     issues.append("claim overview exceeds the lightweight map budget")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
-        if age_hours > 48 and not source_unavailable:
+        if age_hours > 48 and not source_unavailable and not retained_boundary:
             issues.append(f"snapshot is {age_hours:.1f} hours old")
 
         lineage: list[dict[str, Any]] = []
-        if key in PROVINCES and not source_unavailable:
+        if retained_boundary:
+            # No new raw manifest is expected after restoring the prior release.
+            # Retention is allowed only with an identical, previously passing snapshot.
+            try:
+                prior = verify_retained(root, key, metadata["generatedAt"])
+                normalized_count = prior["normalizedRecordCount"]
+                holder_source_gaps = prior.get("holderSourceAudit", [])
+                lineage = prior.get("lineage", [])
+            except (OSError, ValueError, KeyError) as error:
+                issues.append(f"retained snapshot proof failed: {error}")
+                normalized_count = 0
+                holder_source_gaps = []
+        elif key in PROVINCES and not source_unavailable:
             raw_dir = root / "data" / f"{key}-mining" / "raw"
             manifest = json.loads((raw_dir / "download_manifest.json").read_text(encoding="utf-8"))
             for layer in manifest["layers"]:
@@ -224,6 +249,8 @@ def main() -> None:
                 "published": not source_unavailable,
                 "sourceAvailability": source_status.get("state", "verified"),
                 "sourceCheckedAt": source_status.get("checkedAt"),
+                "verificationMode": "retained-boundary-outage" if retained_boundary else "source-refresh",
+                "boundaryState": source_status.get("boundaryState", "verified"),
                 "lastVerified": source_status.get("lastVerified") or metadata.get("generatedAt"),
                 "availabilityMessage": source_status.get("message"),
                 "generatedAt": metadata.get("generatedAt"),
@@ -243,7 +270,7 @@ def main() -> None:
         )
 
     has_blocking_issues = any(item["status"] == "review-required" for item in audits)
-    has_source_outages = any(item["status"] == "source-unavailable" for item in audits)
+    has_source_outages = any(item["status"] == "source-unavailable" or item.get("boundaryState") == "source-unavailable" for item in audits)
     audit_result = (
         "review-required" if has_blocking_issues
         else "passed-with-source-outages" if has_source_outages
@@ -262,10 +289,16 @@ def main() -> None:
         "pendingJurisdictions": PENDING_SOURCES,
     }
     destination = public_root / "data-audit.json"
-    destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Wrote {destination}")
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if not args.check_only:
+        destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"Wrote {destination}")
     for item in audits:
         print(f"{item['jurisdiction']}: {item['status']} — {item['currentRecordCount']:,} published current records")
+        for issue in item["issues"]:
+            print(f"  Review required: {issue}")
     if has_blocking_issues:
         raise SystemExit(1)
 

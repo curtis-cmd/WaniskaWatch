@@ -14,12 +14,13 @@ def main() -> None:
     parser.add_argument("jurisdiction")
     parser.add_argument(
         "state",
-        choices=["verified", "source-unavailable", "boundary-source-unavailable"],
+        choices=["verified", "source-unavailable", "boundary-source-unavailable", "audit-failed"],
     )
     parser.add_argument("--source-url")
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     args = parser.parse_args()
 
-    root = Path(__file__).resolve().parents[2]
+    root = args.root.resolve()
     public_root = root / "public" / "data"
     status_path = public_root / "jurisdiction-status.json"
     dataset_path = public_root / f"{args.jurisdiction}-mining.json"
@@ -56,14 +57,22 @@ def main() -> None:
     }
     jurisdictions = payload.setdefault("jurisdictions", {})
     if args.state == "verified":
+        manifest_path = root / "data" / f"{args.jurisdiction}-mining" / "raw" / "download_manifest.json"
+        manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+        cached_boundaries = manifest.get("boundary_mode") == "previously-verified-cache"
+        boundary_date = (manifest.get("territory_boundary") or {}).get("retrieved_at") or manifest.get("retrieved_at")
         jurisdictions[args.jurisdiction] = {
             "state": "verified",
             "checkedAt": now,
             "lastVerified": last_verified,
             "lastVerifiedRecordCount": last_verified_record_count,
-            "message": f"{jurisdiction_name} source refresh verified.",
+            "message": (
+                f"{jurisdiction_name} mining-source refresh verified. Territorial context uses previously verified boundary data, dated {str(boundary_date)[:10]}; boundaries were not re-verified in this refresh."
+                if cached_boundaries else f"{jurisdiction_name} source refresh verified."
+            ),
             "sourceUrl": args.source_url or metadata.get("sourceUrl"),
-            "boundaryState": "verified",
+            "boundaryState": "previously-verified" if cached_boundaries else "verified",
+            "boundaryVerifiedAt": boundary_date,
         }
     elif args.state == "boundary-source-unavailable":
         verified_date = previous.get("lastVerified") or last_verified
@@ -89,7 +98,8 @@ def main() -> None:
             "checkedAt": now,
             "lastVerified": previous.get("lastVerified") or last_verified,
             "lastVerifiedRecordCount": previous.get("lastVerifiedRecordCount") or last_verified_record_count,
-            "message": f"Source temporarily unavailable—last verified {datetime.fromisoformat(str(previous.get('lastVerified') or last_verified).replace('Z', '+00:00')).strftime('%B %-d, %Y')}.",
+            "message": ("Verification checks did not pass; records temporarily unpublished" if args.state == "audit-failed" else "Source temporarily unavailable") + f"—last verified {datetime.fromisoformat(str(previous.get('lastVerified') or last_verified).replace('Z', '+00:00')).strftime('%B %-d, %Y')}.",
+            "failureReason": "audit-failed" if args.state == "audit-failed" else "source-unavailable",
             "sourceUrl": args.source_url or previous.get("sourceUrl") or metadata.get("sourceUrl"),
         }
 

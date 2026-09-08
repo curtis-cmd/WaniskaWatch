@@ -31,6 +31,18 @@ test("national grouping preserves totals and rejects invalid points", () => {
   assert.throws(() => aggregateClaims("bad", "Bad", [{ geometry: { coordinates: [-100, 55] }, properties: { count: -1 } }]));
 });
 
+test("national navigation uses official outlines and never resets zoom on resize", async () => {
+  const boundaries = JSON.parse(await readFile(new URL("../public/data/canada-provinces.json", import.meta.url), "utf8"));
+  const component = await readFile(new URL("../app/canada/NationalOverview.tsx", import.meta.url), "utf8");
+  assert.equal(boundaries.features.length, 13);
+  assert.equal(new Set(boundaries.features.map(f => f.properties.key)).size, 13);
+  assert.match(boundaries.metadata.sourceUrl, /^https:\/\/geo\.statcan\.gc\.ca\//);
+  assert.match(component, /ResizeObserver\(\(\) => instance\.invalidateSize\(\{pan: false\}\)\)/);
+  assert.match(component, /requestFullscreen/);
+  assert.match(component, /focusProvince/);
+  assert.match(component, /national-open-records/);
+});
+
 test("Canada page renders useful content, dates and limitations without JavaScript", async () => {
   const { default: worker } = await import("../dist/server/index.js");
   const response = await worker.fetch(new Request("http://localhost/canada", { headers: { accept: "text/html" } }),
@@ -38,7 +50,7 @@ test("Canada page renders useful content, dates and limitations without JavaScri
     { waitUntil() {}, passThroughOnException() {} });
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const content of ["The bigger picture.", "claims in published snapshots", "Presentation view", "Verified as of", "Not complete national coverage", "Prince Edward Island", "Not real-time", "waniska-watch-header.png"]) {
+  for (const content of ["Explore the land. Start here.", "claims in published snapshots", "Presentation view", "Verified as of", "Not complete national coverage", "Prince Edward Island", "Not real-time", "waniska-watch-header.png", "Zoom in", "Zoom out", "Map zoom level", "Full screen map", "Canada · All available claims"]) {
     assert.ok(html.includes(content), content);
   }
   assert.ok(html.includes(data.metadata.claimCount.toLocaleString("en-CA")));

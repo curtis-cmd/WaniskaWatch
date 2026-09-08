@@ -115,6 +115,7 @@ type JurisdictionSourceStatus = {
   lastVerified: string;
   message: string;
   sourceUrl?: string;
+  boundaryState?: "verified" | "source-unavailable" | "previously-verified";
 };
 type JurisdictionStatusDirectory = {
   metadata: { updatedAt: string; note: string };
@@ -1338,6 +1339,7 @@ export default function MiningPortal() {
     ))
     : [province];
   const updated = formatDate(generatedAt, "Loading");
+  const snapshotNeedsRefresh = generatedAt && Date.now() - Date.parse(generatedAt) > 7 * 86400000;
   const selectedLastVerified = formatDate(
     jurisdictionSourceStatus?.lastVerified || selected?.properties.lastUpdated || generatedAt,
     "Not available",
@@ -1604,7 +1606,8 @@ export default function MiningPortal() {
         </div>
       </div>
       <div className="watch-coverage-note" id="coverage-note" role="status">
-        {dataStatus === "ready" ? <><strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong> Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.</> : dataStatus === "error" ? "Coverage could not be loaded. Use the official sources below to verify current information." : "Loading coverage and source verification dates…"}
+        {dataStatus === "ready" && snapshotNeedsRefresh && <strong>Snapshot more than seven days old—re-verification is needed. </strong>}
+        {dataStatus === "ready" ? <><strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong> {jurisdictionSourceStatus?.boundaryState && jurisdictionSourceStatus.boundaryState !== "verified" && <span>{jurisdictionSourceStatus.message} </span>}Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.</> : dataStatus === "error" ? "Coverage could not be loaded. Use the official sources below to verify current information." : "Loading coverage and source verification dates…"}
       </div>
       <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
         <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
