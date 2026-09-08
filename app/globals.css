@@ -2,6 +2,7 @@
 @import "leaflet/dist/leaflet.css";
 
 :root {
+  --watch-claim-gold: #ce913d;
   --watch-ink: #172d2b;
   --watch-forest: #174e48;
   --watch-forest-dark: #10332f;
@@ -14,6 +15,69 @@
   --watch-gold: #a55b2c;
   --watch-warning: #7b5427;
   --watch-sans: "Avenir Next", Avenir, Helvetica, Arial, sans-serif;
+}
+
+/* A cartographic plate for the national overview, using the Watch brand. */
+.watch-canada-link { display: block; margin-top: 18px; font-weight: 650; text-underline-offset: 5px; }
+.national-page { min-height: 100vh; background: var(--watch-paper); }
+.national-toolbar { max-width: 1600px; margin: auto; padding: 18px 28px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.national-toolbar > div { margin-left: auto; display: flex; gap: 8px; }
+.national-toolbar button, .national-reset { border: 1px solid var(--watch-line); background: white; color: var(--watch-ink); padding: 10px 16px; font-size: 14px; font-weight: 650; }
+.national-toolbar button[aria-pressed="true"] { background: var(--watch-forest-dark); color: white; }
+.national-toolbar [role="status"] { font-size: 14px; }
+.national-sheet { max-width: 1544px; margin: 0 auto; border: 1px solid var(--watch-line); background: white; }
+.national-heading { padding: 28px 36px; display: flex; gap: 28px; justify-content: space-between; align-items: center; border-top: 5px solid var(--watch-forest-dark); }
+.national-heading h1 { font: 500 clamp(30px, 3.4vw, 52px)/1.12 Georgia, serif; margin: 8px 0; letter-spacing: -.035em; }
+.national-heading p { margin: 0; font-size: 18px; }
+.national-total { display: flex; flex-direction: column; text-align: right; gap: 4px; }
+.national-total strong { font: 500 clamp(32px, 4vw, 58px)/1 Georgia, serif; font-variant-numeric: tabular-nums; }
+.national-total span { font-size: 16px; }
+.national-total small { font-size: 14px; color: var(--watch-muted); }
+.national-map-wrap { position: relative; }
+.national-map { height: clamp(460px, 62vh, 760px); background: #d9e7e8; z-index: 0; }
+.national-map .leaflet-tile-pane { filter: saturate(.55); }
+.national-map-key { position: absolute; z-index: 400; left: 16px; bottom: 32px; background: rgba(255,255,255,.96); border-left: 4px solid var(--watch-claim-gold); padding: 12px 16px; font-size: 14px; pointer-events: none; }
+.national-map-key > span { color: #9a6120; margin-right: 5px; }
+.national-map-key small { font-size: 12px; }
+.national-reset { position: absolute; top: 12px; right: 12px; z-index: 400; }
+.national-map-message { position: absolute; top: 65px; right: 12px; left: 60px; z-index: 400; background: white; padding: 12px 16px; border: 1px solid var(--watch-line); max-width: 540px; }
+.national-caption { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 18px 28px; font-size: 14px; line-height: 1.55; border-top: 1px solid var(--watch-line); }
+.national-brandline { display: flex; gap: 16px; justify-content: space-between; padding: 16px 28px; background: var(--watch-forest-dark); color: white; font-size: 14px; }
+.national-brandline > span:first-child { font-weight: 650; }
+.national-sources { max-width: 1544px; padding: 46px 28px; margin: auto; }
+.national-sources h2 { font: 500 32px/1.2 Georgia, serif; margin: 12px 0; }
+.national-sources p { max-width: 980px; line-height: 1.65; }
+.national-jurisdictions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; border: 1px solid var(--watch-line); background: var(--watch-line); margin: 24px 0; }
+.national-jurisdictions article { background: white; padding: 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.national-jurisdictions article > a:first-child { display: flex; flex-direction: column; gap: 12px; text-decoration: none; }
+.national-jurisdictions strong { font-size: 16px; }
+.national-jurisdictions b { font: 500 26px/1.2 Georgia, serif; }
+.national-jurisdictions article > span, .national-source-link { font-size: 14px; }
+.national-source-link { text-underline-offset: 3px; }
+.national-unavailable { padding: 16px 22px; border-left: 4px solid var(--watch-warning); background: white; }
+.national-unavailable h3 { font-size: 16px; margin: 0 0 8px; }
+.national-unavailable p { margin: 4px 0; }
+.national-information { margin: 28px 0 14px; }
+.national-presentation .national-sources { display: none; }
+.national-presentation .national-map { height: min(66vh, 960px); }
+.national-presentation .national-sheet { max-width: 1800px; }
+@media (max-width: 900px) {
+  .national-jurisdictions { grid-template-columns: repeat(2, 1fr); }
+  .national-heading { padding: 24px; }
+  .national-caption { grid-template-columns: 1fr; gap: 10px; }
+  .national-brandline { flex-direction: column; gap: 8px; }
+  .national-page .watch-header nav { gap: 14px; }
+}
+@media (max-width: 600px) {
+  .national-toolbar { padding: 14px; }
+  .national-toolbar > div { margin-left: 0; flex-wrap: wrap; }
+  .national-heading { align-items: flex-start; flex-direction: column; gap: 18px; }
+  .national-total { text-align: left; }
+  .national-map { height: 490px; }
+  .national-jurisdictions { grid-template-columns: 1fr; }
+  .national-sources { padding: 32px 18px; }
+  .national-map-key { left: 8px; padding: 8px; max-width: 240px; }
+  .national-page .watch-header nav { display: none; }
 }
 
 * { box-sizing: border-box; }

@@ -1358,6 +1358,7 @@ export default function MiningPortal() {
     <header className="watch-header">
       <a className="watch-brand" href="#top" aria-label="Waniskâ Watch home"><WatchLogo /></a>
       <nav aria-label="Waniskâ Watch navigation">
+        <a href={appPath("/canada")}>Canada-wide map</a>
         <a href="#territory-watch">Territory Watch</a>
         <a href="#trust">How to use the data</a>
         <a href="#sources">Sources</a>
@@ -1373,6 +1374,7 @@ export default function MiningPortal() {
       <div className="watch-atlas-intro">
         <p>A free resource for Nations and communities. Explore public mining records in the places that matter to you.</p>
         <button type="button" onClick={beginTerritoryWatch}>Explore the map <span aria-hidden="true">↓</span></button>
+        <a className="watch-canada-link" href={appPath("/canada")}>See all published claims across Canada ↗</a>
       </div>
     </section>
 
