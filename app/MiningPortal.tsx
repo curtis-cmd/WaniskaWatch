@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isCurrentActivity } from './current-record.mjs';
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Map as LeafletMap, PathOptions } from "leaflet";
 
@@ -294,37 +295,6 @@ function normalizePublishedFields(properties: ActivityProperties): ActivityPrope
     status: null,
     rightsClassification: publishedStatus,
   };
-}
-
-const inactiveStatusMarkers = [
-  "abandoned", "canceled", "cancelled", "closed", "conv lease", "converted to lease",
-  "expired", "forfeited", "non operational", "orphaned", "past producing",
-  "past-producing", "refused", "rejected", "remediated", "surrendered", "terminated", "withdrawn",
-  "pending", "application",
-];
-
-const currentStatusMarkers = [
-  "active", "appl exemp", "appl exten", "appl lease", "appl rff",
-  "good stand", "hold", "operational", "producer", "producing mine",
-  "reactivat", "reinstat",
-];
-
-function normalizedStatus(status: string | null | undefined) {
-  return String(status || "").trim().toLowerCase().replaceAll("_", " ").replace(/\s+/g, " ");
-}
-
-function isCurrentActivity(properties: ActivityProperties, asOfDate = new Date().toISOString().slice(0, 10)) {
-  const status = normalizedStatus(properties.status);
-  const recordType = String(properties.kindLabel || "").toLowerCase();
-  if (recordType.includes("assessment file")) return false;
-  if (inactiveStatusMarkers.some(marker => status.includes(marker))) return false;
-  if (properties.kind === "claim" && ["converted", "leased", "refused", "withdrawn"].includes(status)) return false;
-  if (properties.kind === "mine") {
-    return currentStatusMarkers.some(marker => status.includes(marker)) && !status.includes("pending");
-  }
-  const explicitlyCurrent = currentStatusMarkers.some(marker => status.includes(marker));
-  if (properties.expiryDate && properties.expiryDate.slice(0, 10) < asOfDate && !explicitlyCurrent) return false;
-  return true;
 }
 
 function fmt(value: number | null | undefined) {

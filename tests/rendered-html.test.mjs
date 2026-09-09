@@ -178,7 +178,7 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /claim-overview\.json/i);
   assert.match(portal, /list\.scrollTo/);
   assert.match(portal, /isCurrentActivity/);
-  assert.match(portal, /assessment file/);
+  assert.match(await readFile(new URL('../app/current-record.mjs', import.meta.url), 'utf8'), /assessment file/);
   assert.match(portal, /Current activity only/i);
   assert.match(ontarioClaimsRoute, /TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%'/);
   assert.match(yukonClaimsRoute, /TENURE_STATUS='Active'/);

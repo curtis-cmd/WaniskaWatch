@@ -3,8 +3,8 @@ import NationalOverview from "./NationalOverview";
 import overview from "../../public/data/canada-claims-overview.json";
 
 export const metadata: Metadata = {
-  title: "Canada-wide mining claims | Waniskâ Watch",
-  description: "Explore published mining-claim snapshots across Canada. Aggregated locations, source dates and coverage limitations remain visible.",
+  title: "Canada-wide mining map | Waniskâ Watch",
+  description: "Explore public mining claims, leases, exploration and operating mines across Canada. Zoom for available record boundaries, sources and verification dates.",
   alternates: { canonical: "https://app.waniskaservices.ca/watch/canada" },
 };
 

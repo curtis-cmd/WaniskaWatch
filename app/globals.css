@@ -40,6 +40,21 @@
 .national-workspace:fullscreen .national-picker { max-height: 100dvh; }
 .national-map { height: clamp(580px, 68vh, 900px); background: #edf2f3; z-index: 0; }
 .national-map .leaflet-tile-pane { filter: saturate(.3) contrast(.95); }
+.national-layers { border: 0; padding: 0; margin: 22px 0; }
+.national-layers legend { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.national-layers label { display: flex; gap: 10px; align-items: center; min-height: 44px; font-size: 14px; cursor: pointer; }
+.national-layers input { width: 18px; height: 18px; accent-color: var(--watch-forest); }
+.national-detail-note { font-size: 14px; line-height: 1.6; border-left: 3px solid var(--watch-gold); padding-left: 12px; }
+.national-record-list { margin-top: 16px; font-size: 14px; }
+.national-record-list summary { cursor: pointer; padding: 12px 0; font-weight: 650; }
+.national-record-list button { display: block; width: 100%; text-align: left; padding: 12px 4px; border-bottom: 1px solid var(--watch-line); overflow-wrap: anywhere; }
+.national-record-list small { display: block; color: var(--watch-muted); font-size: 12px; }
+.national-record-detail { position: absolute; z-index: 450; top: 16px; left: 16px; width: min(350px, calc(100% - 100px)); max-height: calc(100% - 140px); overflow: auto; background: white; border-top: 4px solid var(--watch-forest); box-shadow: 0 4px 22px #172d2b33; padding: 18px; overflow-wrap: anywhere; font-size: 14px; }
+.national-record-detail > button { float: right; font-size: 24px; min-width: 44px; min-height: 44px; }
+.national-record-detail h3 { font-size: 20px; }
+.national-record-detail dt { font-weight: 700; margin-top: 12px; }
+.national-record-detail p { line-height: 1.5; margin: 12px 0; }
+.national-record-detail a { display: block; padding: 8px 0; text-decoration: underline; }
 .national-picker { padding: 24px; background: #fff; border-right: 1px solid var(--watch-line); max-height: 900px; overflow: auto; }
 .national-picker > label { display: block; margin: 22px 0 8px; font-weight: 650; font-size: 14px; }
 .national-picker select { width: 100%; padding: 12px 8px; border: 1px solid #8b9f99; background: var(--watch-paper); min-height: 48px; font-size: 16px; border-radius: 0; }
