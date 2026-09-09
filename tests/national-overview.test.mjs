@@ -41,6 +41,9 @@ test("national navigation uses official outlines and never resets zoom on resize
   assert.match(component, /requestFullscreen/);
   assert.match(component, /focusProvince/);
   assert.match(component, /national-open-records/);
+  assert.match(component, /minZoom: 0\.5,/);
+  assert.match(component, /type="range" min="0\.5"/);
+  assert.match(component, /paddingBottomRight: \[82, 104\]/);
 });
 
 test("Canada page renders useful content, dates and limitations without JavaScript", async () => {

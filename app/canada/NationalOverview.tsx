@@ -13,13 +13,14 @@ type Overview = {
 const path = (value: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${value}`;
 const number = (value: number) => value.toLocaleString("en-CA");
 const date = (value: string | null) => value ? new Date(value).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) : "Not available";
+const overviewPadding = { paddingTopLeft: [18, 18] as [number, number], paddingBottomRight: [82, 104] as [number, number] };
 
 export default function NationalOverview({ data }: { data: Overview }) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const outlines = useRef<Map<string, GeoJSON>>(new Map());
-  const markers = useRef<Array<{province: string; marker: CircleMarker}>>([]);
+  const markers = useRef<Array<{province: string; marker: CircleMarker; baseRadius: number}>>([]);
   const [focused, setFocused] = useState("");
   const [zoom, setZoom] = useState(3);
   const [fullscreen, setFullscreen] = useState(false);
@@ -33,7 +34,7 @@ export default function NationalOverview({ data }: { data: Overview }) {
 
   function focusProvince(key: string) {
     setFocused(key);
-    if (!key) map.current?.fitBounds([[41.5, -141], [83.2, -52]], { padding: [18, 18] });
+    if (!key) map.current?.fitBounds([[41.5, -141.1], [83.2, -52]], overviewPadding);
     else {
       const outline = outlines.current.get(key);
       if (outline) map.current?.fitBounds(outline.getBounds(), { padding: [36, 36], maxZoom: 7 });
@@ -72,14 +73,20 @@ export default function NationalOverview({ data }: { data: Overview }) {
       if (stopped || !element.current) return;
       // Keep Canada's silhouette readable without Mercator's enlarged Arctic.
       // Detailed street/terrain context remains available in the provincial maps.
-      const instance = L.map(element.current, { crs: L.CRS.EPSG4326, preferCanvas: true, zoomControl: false, minZoom: 2, maxZoom: 10, scrollWheelZoom: true, zoomSnap: 0.25, maxBounds: [[35,-155],[87,-40]], maxBoundsViscosity: .7 });
+      const instance = L.map(element.current, { crs: L.CRS.EPSG4326, preferCanvas: true, zoomControl: false, minZoom: 0.5, maxZoom: 10, scrollWheelZoom: true, zoomSnap: 0.25 });
       map.current = instance;
-      const fit = () => instance.fitBounds([[41.5, -141], [83.2, -52]], { padding: [18, 18], animate: false });
+      const fit = () => instance.fitBounds([[41.5, -141.1], [83.2, -52]], { ...overviewPadding, animate: false });
       instance.attributionControl.addAttribution('<a href="https://geo.statcan.gc.ca/geo_wa/rest/services/2021/Cartographic_boundary_files/MapServer/0">Statistics Canada · 2021 boundaries</a>');
       L.control.scale({imperial:false, position:"bottomright"}).addTo(instance);
       instance.createPane("provinceOutlines");
       instance.getPane("provinceOutlines")!.style.zIndex = "390";
-      instance.on("zoomend", () => { if (!stopped) setZoom(instance.getZoom()); });
+      const markerScale = () => Math.min(1, 2 ** (instance.getZoom() - 2.5));
+      instance.on("zoomend", () => {
+        if (!stopped) {
+          setZoom(instance.getZoom());
+          for (const {marker, baseRadius} of markers.current) marker.setRadius(baseRadius * markerScale());
+        }
+      });
       fit();
       observer = new ResizeObserver(() => instance.invalidateSize({pan: false}));
       observer.observe(element.current);
@@ -119,12 +126,13 @@ export default function NationalOverview({ data }: { data: Overview }) {
         link.href = path(`/?province=${encodeURIComponent(province)}#territory-watch`);
         link.textContent = `Explore ${name} records →`;
         content.append(heading, detail, link);
+        const baseRadius = Math.min(9, 1.8 + Math.log10(count + 1) * 1.8);
         const marker = L.circleMarker([latitude, longitude], {
-          radius: Math.min(9, 1.8 + Math.log10(count + 1) * 1.8),
+          radius: baseRadius * markerScale(),
           color: "#765324", weight: 0.6, fillColor: "#ce913d", fillOpacity: 0.85,
         }).bindTooltip(label).bindPopup(content).addTo(instance);
         marker.on("click", () => setFocused(province));
-        markers.current.push({province, marker});
+        markers.current.push({province, marker, baseRadius});
       }
       fit();
       setReady(true);
@@ -180,8 +188,8 @@ export default function NationalOverview({ data }: { data: Overview }) {
         <div className="national-map-key" id="national-map-key"><span aria-hidden="true">●</span> Grouped claim locations · larger = more claims<br /><small>Not claim or treaty boundaries · verified as of {date(data.metadata.oldestVerified)}</small></div>
         <div className="national-navigation" role="group" aria-label="Canada map navigation">
           <button type="button" aria-label="Zoom in" disabled={!ready || zoom >= 10} onClick={() => map.current?.zoomIn()}>+</button>
-          <label><span className="sr-only">Map zoom level</span><input type="range" min="2" max="10" step="0.25" value={zoom} disabled={!ready} onChange={event => map.current?.setZoom(Number(event.target.value))} /></label>
-          <button type="button" aria-label="Zoom out" disabled={!ready || zoom <= 2} onClick={() => map.current?.zoomOut()}>−</button>
+          <label><span className="sr-only">Map zoom level</span><input type="range" min="0.5" max="10" step="0.25" value={zoom} disabled={!ready} onChange={event => map.current?.setZoom(Number(event.target.value))} /></label>
+          <button type="button" aria-label="Zoom out" disabled={!ready || zoom <= 0.5} onClick={() => map.current?.zoomOut()}>−</button>
           <button type="button" disabled={!ready} onClick={() => focusProvince("")} aria-label="Reset to all Canada">↺<span>Canada</span></button>
           <button type="button" disabled={!ready} onClick={toggleFullscreen} aria-label={fullscreen ? "Exit full screen" : "Full screen map"}>⛶<span>{fullscreen ? "Exit" : "Expand"}</span></button>
         </div>

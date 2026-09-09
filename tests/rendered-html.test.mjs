@@ -1,6 +1,27 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
+
+test("separates Ontario rights classifications for leases and licences without changing real statuses", async () => {
+  const portal = await readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8");
+  const definition = portal.match(/function normalizePublishedFields\([\s\S]*?\n}\n/);
+  assert.ok(definition, "Published-field normalizer exists");
+  const javascript = ts.transpileModule(definition[0], { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const normalize = new Function(`${javascript}; return normalizePublishedFields;`)();
+  for (const kind of ["lease", "exploration"]) {
+    for (const status of ["Mining and Surface Rights", "Mining Rights only", "Surface Rights Only"]) {
+      const record = { kind, status, sourceName: "Ontario public mining data", verifiedAt: "2026-08-31" };
+      assert.deepEqual(normalize(record), { ...record, status: null, rightsClassification: status });
+      assert.equal(record.status, status, "Does not mutate the source record");
+    }
+  }
+  for (const record of [
+    { kind: "lease", status: "Active", sourceName: "Ontario" },
+    { kind: "operation", status: "Producing Mine", sourceName: "Ontario" },
+    { kind: "lease", status: "Surface Rights Only", sourceName: "Another jurisdiction" },
+  ]) assert.deepEqual(normalize(record), record);
+});
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);

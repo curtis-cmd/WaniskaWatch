@@ -285,10 +285,10 @@ function holderUnavailableText(properties: ActivityProperties) {
 function normalizePublishedFields(properties: ActivityProperties): ActivityProperties {
   const publishedStatus = String(properties.status || "").trim();
   const sourceName = String(properties.sourceName || "").toLowerCase();
-  const isOntarioLeaseRightsClassification = properties.kind === "lease"
-    && sourceName.includes("ontario")
-    && /\bright(s)?\b/i.test(publishedStatus);
-  if (!isOntarioLeaseRightsClassification) return properties;
+  // Ontario licences of occupation can carry this classification too, not only leases.
+  const isOntarioRightsClassification = sourceName.includes("ontario")
+    && /^(?:mining(?: and surface)?|surface) rights(?: only)?$/i.test(publishedStatus);
+  if (!isOntarioRightsClassification) return properties;
   return {
     ...properties,
     status: null,
