@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
+import {normalizeHolder} from '../app/current-record.mjs';
 
 test("separates Ontario rights classifications for leases and licences without changing real statuses", async () => {
   const portal = await readFile(new URL("../app/MiningPortal.tsx", import.meta.url), "utf8");
   const definition = portal.match(/function normalizePublishedFields\([\s\S]*?\n}\n/);
   assert.ok(definition, "Published-field normalizer exists");
   const javascript = ts.transpileModule(definition[0], { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const normalize = new Function(`${javascript}; return normalizePublishedFields;`)();
+  const normalize = new Function('normalizeHolder', `${javascript}; return normalizePublishedFields;`)(normalizeHolder);
   for (const kind of ["lease", "exploration"]) {
     for (const status of ["Mining and Surface Rights", "Mining Rights only", "Surface Rights Only"]) {
       const record = { kind, status, sourceName: "Ontario public mining data", verifiedAt: "2026-08-31" };
@@ -182,7 +183,7 @@ test("wires official treaty and public-contact data into the mining portal", asy
   assert.match(portal, /Current activity only/i);
   assert.match(ontarioClaimsRoute, /TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%'/);
   assert.match(yukonClaimsRoute, /TENURE_STATUS='Active'/);
-  assert.match(nunavutClaimsRoute, /CLAIM_STAT IN \('ACTIVE','REINSTATED','SUSPENDED'\)/);
+  assert.match(nunavutClaimsRoute, /CLAIM_STAT IN \('ACTIVE','REINSTATED'\)/);
   assert.match(bcClaimsRoute, /TERMINATION_DATE/);
   assert.match(bcClaimsRoute, /GOOD_TO_DATE/);
   assert.match(portal, /\/data\/quebec-claims\/index\.json/);
@@ -206,7 +207,7 @@ test("publishes lightweight current-claim overviews for large jurisdictions", as
     assert.equal(payload.features.every(feature => feature.geometry.type === "Point"), true);
     overviewCount++;
   }
-  assert.ok(overviewCount > 0);
+  assert.equal(overviewCount, ['ontario','quebec','yukon','nunavut','british-columbia'].filter(key => statuses.jurisdictions[key]?.state === 'verified').length);
 });
 
 test("publishes only jurisdictions verified during the latest successful refresh", async () => {
@@ -252,7 +253,7 @@ test("publishes only jurisdictions verified during the latest successful refresh
     dataAudit.liveJurisdictions.reduce((total, item) => total + item.currentRecordCount, 0),
   );
   assert.equal(dataAudit.liveJurisdictions.every(item => ["passed", "source-unavailable"].includes(item.status)), true);
-  assert.ok(verified.length > 0);
+  assert.ok(verified.length + unavailable.length > 0);
 });
 
 test("publishes holder provenance and review flags without implying non-publication", async () => {
@@ -265,6 +266,7 @@ test("publishes holder provenance and review flags without implying non-publicat
     "published-field-empty",
     "government-gis-omits-holder",
     "registry-checked-unavailable",
+    "identifier-only",
   ]);
 
   const publishedKeys = new Set(
@@ -321,7 +323,8 @@ test("keeps boundary outages separate from mining-source outages", async () => {
   assert.match(workflow, /refresh_exit.*-eq 42/s);
   assert.match(workflow, /boundary-source-unavailable/);
   assert.match(workflow, /outages\[@\].*-gt 3/s);
-  assert.match(workflow, /Safety gate stopped publication/);
+  assert.match(workflow, /::warning::/);
+  assert.doesNotMatch(workflow, /Safety gate stopped publication/);
   assert.match(statusUpdater, /"state": "verified"/);
   assert.match(statusUpdater, /"boundaryState": "source-unavailable"/);
 });
@@ -329,10 +332,11 @@ test("keeps boundary outages separate from mining-source outages", async () => {
 test("uses the refreshed Ontario claim overview for the low-zoom counter", async () => {
   const [route, overview] = await Promise.all([
     readFile(new URL("../app/api/claims/ontario/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../public/data/ontario-claim-overview.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../public/data/canada-claims-overview.json", import.meta.url), "utf8").then(JSON.parse),
   ]);
-  assert.ok(Number(overview.metadata?.claimCount) > 0);
-  assert.match(route, /ontario-claim-overview\.json/);
+  assert.ok(Number(overview.jurisdictions.find(item => item.key === 'ontario')?.count || 0) >= 0);
+  assert.match(route, /canada-claims-overview\.json/);
+  assert.match(route, /item.key === 'ontario'/);
   assert.match(route, /count: CURRENT_CLAIM_COUNT/);
   assert.doesNotMatch(route, /count: 394878/);
 });

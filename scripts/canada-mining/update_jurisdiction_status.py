@@ -77,19 +77,20 @@ def main() -> None:
     elif args.state == "boundary-source-unavailable":
         verified_date = previous.get("lastVerified") or last_verified
         jurisdictions[args.jurisdiction] = {
-            "state": "verified",
+            "state": "source-unavailable",
             "checkedAt": now,
             "lastVerified": verified_date,
             "lastVerifiedRecordCount": (
                 previous.get("lastVerifiedRecordCount") or last_verified_record_count
             ),
             "message": (
-                "Mining records remain at the last verified snapshot because the "
-                "territory-boundary source is temporarily unavailable—last verified "
+                "Records temporarily withheld because the refresh could not complete its "
+                "territory-boundary checks—last verified "
                 f"{datetime.fromisoformat(str(verified_date).replace('Z', '+00:00')).strftime('%B %-d, %Y')}."
             ),
             "sourceUrl": args.source_url or previous.get("sourceUrl") or metadata.get("sourceUrl"),
             "boundaryState": "source-unavailable",
+            "failureReason": "boundary-verification-incomplete",
             "boundaryCheckedAt": now,
         }
     else:

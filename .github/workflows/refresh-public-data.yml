@@ -2,7 +2,7 @@ name: Refresh public mining data
 
 on:
   schedule:
-    - cron: "17 11 * * 1"
+    - cron: "17 11 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -41,6 +41,7 @@ jobs:
       - name: Preserve fingerprints of the passing release
         run: |
           python -m unittest discover -s tests -p 'test_refresh_resilience.py'
+          python -m unittest discover -s tests -p 'test_publication_policy.py'
           python scripts/canada-mining/refresh_baseline.py
 
       - name: Refresh each jurisdiction independently
@@ -88,18 +89,19 @@ jobs:
             fi
 
             if [ "$refresh_exit" -eq 42 ]; then
-              echo "Mining source completed for $jurisdiction, but territorial boundaries were unavailable; retaining the complete last verified snapshot."
+              echo "Incomplete refresh for $jurisdiction; withholding its previous public snapshot pending a passing refresh."
               git restore --source=HEAD --worktree --staged \
                 ":(glob)public/data/${jurisdiction}-**" || true
               git clean -fdx -- "data/${jurisdiction}-mining" || true
               git clean -fd -- "public/data/${jurisdiction}-claims" || true
               python scripts/canada-mining/update_jurisdiction_status.py \
                 "$jurisdiction" boundary-source-unavailable
+              python scripts/canada-mining/unpublish_jurisdiction.py "$jurisdiction"
+              outages+=("$jurisdiction")
               boundary_outages+=("$jurisdiction")
               if ! python scripts/canada-mining/audit_public_datasets.py --jurisdiction "$jurisdiction" --check-only --report "data/audits/$jurisdiction.json"; then
                 python scripts/canada-mining/update_jurisdiction_status.py "$jurisdiction" audit-failed
                 python scripts/canada-mining/unpublish_jurisdiction.py "$jurisdiction"
-                outages+=("$jurisdiction")
               fi
               continue
             fi
@@ -118,12 +120,10 @@ jobs:
           echo "outages=$outage_list" >> "$GITHUB_OUTPUT"
           echo "boundary_outages=$boundary_outage_list" >> "$GITHUB_OUTPUT"
 
-          # A broad, simultaneous disappearance is more likely a shared service or
-          # runner problem than nine independent government-source outages. Never
-          # publish that state automatically.
+          # Alert on broad outages, but do not let one group of unverified sources
+          # prevent independently passing jurisdictions from publishing.
           if [ "${#outages[@]}" -gt 3 ]; then
-            echo "::error::Safety gate stopped publication because ${#outages[@]} jurisdictions would be removed at once: $outage_list"
-            exit 1
+            echo "::warning::${#outages[@]} jurisdictions are temporarily withheld pending verification: $outage_list"
           fi
 
       - name: Audit the complete public dataset
@@ -191,7 +191,7 @@ jobs:
         run: |
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           issue_number=$(gh issue list --state open --search 'Public mining source temporarily unavailable in:title' --json number --jq '.[0].number // empty')
-          message="The verified refresh completed for available jurisdictions. Mining-source outages (temporarily unpublished): ${OUTAGES:-none}. Territory-boundary outages (last verified mining snapshot retained): ${BOUNDARY_OUTAGES:-none}. Review: $run_url"
+          message="The verified refresh completed for available jurisdictions. Jurisdictions withheld pending verification: ${OUTAGES:-none}. Incomplete territory-boundary checks (also withheld): ${BOUNDARY_OUTAGES:-none}. Review: $run_url"
           if [ -n "$issue_number" ]; then
             gh issue comment "$issue_number" --body "$message"
           else

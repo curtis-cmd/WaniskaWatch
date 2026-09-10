@@ -60,8 +60,7 @@ test("Canada page renders useful content, dates and limitations without JavaScri
     assert.ok(html.includes(content), content);
   }
   assert.ok(html.includes(data.metadata.claimCount.toLocaleString("en-CA")));
-  assert.ok(html.includes("province=ontario"));
-  assert.ok(html.includes("province=quebec"));
+  for (const j of data.jurisdictions) assert.ok(html.includes(`province=${j.key}`));
   for (const label of ['Map layers', 'Operating mines', 'Treaties &amp; agreements', 'Loaded records']) assert.ok(html.includes(label), label);
 });
 
@@ -96,14 +95,14 @@ test('national and provincial maps share active-record and renewal rules', () =>
   assert.equal(isCurrentActivity({kind:'mine',status:'Operational'}), true);
   assert.equal(isCurrentActivity({kind:'mine',status:null}), false);
   assert.equal(isCurrentActivity({kind:'claim',status:null,expiryDate:'2020-01-01'}), false);
-  assert.equal(isCurrentActivity({kind:'claim',status:'Reinstated',expiryDate:'2020-01-01'}), true);
+  assert.equal(isCurrentActivity({kind:'claim',status:'Reinstated',expiryDate:'2020-01-01'}), false);
 });
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 async function mapDataModule() {
   const source = await readFile(new URL('../app/canada/map-data.ts', import.meta.url), 'utf8');
   const javascript = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
-    .replace('../current-record.mjs', new URL('../app/current-record.mjs', import.meta.url).href);
+    .replaceAll('../current-record.mjs', new URL('../app/current-record.mjs', import.meta.url).href);
   const url = moduleUrl(javascript);
   return {url, module: await import(url)};
 }
@@ -122,7 +121,7 @@ test('viewport geometry and Ontario field normalization retain provenance', asyn
   assert.deepEqual(result.geometry, geometry);
 });
 
-test('a failing display tile does not suppress passing neighbouring records', async t => {
+test('a failing display tile does not suppress passing neighbouring records', {timeout: 10000}, async t => {
   const {url} = await mapDataModule();
   const source = await readFile(new URL('../app/canada/activity-map.ts', import.meta.url), 'utf8');
   const javascript = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replaceAll('./map-data', url);

@@ -19,6 +19,8 @@ if VENDOR.exists():
 from pyproj import Transformer  # type: ignore
 from shapely.geometry import mapping, shape  # type: ignore
 from shapely.ops import transform  # type: ignore
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "canada-mining"))
+from publication_policy import eligible
 
 LAYERS = {
     "mining_claims": ("claim", 55),
@@ -45,13 +47,7 @@ def normalized_status(value):
 
 
 def is_current_record(kind, status, expiry_date, as_of_date):
-    normalized = normalized_status(status)
-    if any(marker in normalized for marker in INACTIVE_STATUS_MARKERS):
-        return False
-    if kind == "mine":
-        return any(marker in normalized for marker in CURRENT_STATUS_MARKERS) and "pending" not in normalized
-    explicitly_current = any(marker in normalized for marker in CURRENT_STATUS_MARKERS)
-    return not (expiry_date and expiry_date < as_of_date and not explicitly_current)
+    return eligible(kind, status, expiry_date, as_of_date)
 
 
 def compact_date(value):
@@ -129,8 +125,9 @@ def main() -> None:
     }
     to_wgs84 = Transformer.from_crs("EPSG:26914", "EPSG:4326", always_xy=True)
     features = []
-    generated_at = datetime.now(timezone.utc).isoformat()
-    as_of_date = generated_at[:10]
+    manifest = json.loads((args.raw_dir / "download_manifest.json").read_text())
+    generated_at = manifest["retrieved_at"]
+    as_of_date = datetime.now(timezone.utc).date().isoformat()
 
     for filename, (kind, tolerance) in LAYERS.items():
         source = json.loads((args.raw_dir / f"{filename}.geojson").read_text(encoding="utf-8"))
@@ -180,7 +177,7 @@ def main() -> None:
                             else None
                         ),
                         "holderEvidenceUrl": registry_holder["evidenceUrl"] if registry_holder else None,
-                        "holderVerifiedAt": registry_holder["evidenceDate"] if registry_holder else as_of_date,
+                        "holderVerifiedAt": registry_holder["evidenceDate"] if registry_holder else generated_at[:10],
                         "holderAvailability": "published" if holder else "registry-checked-unavailable",
                         "holderReviewRequired": not bool(holder),
                         "issueDate": compact_date(props.get("ISSUE_DATE")),

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import claimOverview from "../../../../public/data/ontario-claim-overview.json";
-import { unavailableJurisdictionResponse } from "../sourceVerification";
+import claimOverview from "../../../../public/data/canada-claims-overview.json";
+import { unavailableJurisdictionResponse, eligibleSourceFeatures } from "../sourceVerification";
 
 const CLAIM_LAYER =
   "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS/mlas_op/MapServer/1";
 const MAX_FEATURES = 2000;
-const CURRENT_CLAIM_COUNT = Number(claimOverview.metadata.claimCount || 0);
+const CURRENT_CLAIM_COUNT = Number(claimOverview.jurisdictions.find(item => item.key === 'ontario')?.count || 0);
 
 function validNumber(value: string | null) {
   if (value == null || value.trim() === "") return null;
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     spatialReference: { wkid: 4326 },
   });
   const shared = new URLSearchParams({
-    where: "TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%'",
+    where: `(TENURE_STATUS_DESC LIKE 'Active%' OR TENURE_STATUS_DESC LIKE 'Hold%') AND (CLAIM_DUE_DATE IS NULL OR CLAIM_DUE_DATE >= DATE '${new Date().toISOString().slice(0, 10)}')`,
     geometry,
     geometryType: "esriGeometryEnvelope",
     inSR: "4326",
@@ -76,8 +76,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Ontario MLAS is temporarily unavailable." }, { status: 502 });
   }
   const payload = await featureResponse.json();
+  if (payload.error || !Array.isArray(payload.features)) return NextResponse.json({error: 'Ontario source response could not be verified.'}, {status: 502});
   return NextResponse.json({
     ...payload,
+    features: eligibleSourceFeatures(payload.features),
     metadata: {
       count,
       truncated: count > MAX_FEATURES,

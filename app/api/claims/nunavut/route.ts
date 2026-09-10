@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unavailableJurisdictionResponse } from "../sourceVerification";
+import { unavailableJurisdictionResponse, eligibleSourceFeatures } from "../sourceVerification";
 
 const CLAIM_LAYER = "https://geo.sac-isc.gc.ca/geomatics/rest/services/Donnees_Ouvertes-Open_Data/Claim_minier_NU_Mineral_Claim/MapServer/0";
 const MAX_FEATURES = 2000;
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     spatialReference: { wkid: 4326 },
   });
   const shared = new URLSearchParams({
-    where: "CLAIM_STAT IN ('ACTIVE','REINSTATED','SUSPENDED')",
+    where: `CLAIM_STAT IN ('ACTIVE','REINSTATED') AND (CANCEL_DT IS NULL OR CANCEL_DT >= DATE '${new Date().toISOString().slice(0, 10)}')`,
     geometry,
     geometryType: "esriGeometryEnvelope",
     inSR: "4326",
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
     const count = Number(countPayload.count || 0);
     return NextResponse.json({
       ...payload,
+      features: eligibleSourceFeatures(payload.features),
       metadata: {
         count,
         truncated: count > MAX_FEATURES,

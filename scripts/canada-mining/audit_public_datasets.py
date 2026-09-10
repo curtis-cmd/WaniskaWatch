@@ -7,12 +7,14 @@ import json
 import argparse
 import re
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from config import PROVINCES
 from refresh_baseline import verify_retained
+from publication_policy import eligible, holder_fields
 
 INACTIVE = re.compile(
     r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
@@ -36,10 +38,12 @@ def canonical_raw_count(raw_dir: Path, layer: dict[str, Any]) -> int:
         page for page in (raw_dir / slug).glob("page-*.geojson")
         if re.fullmatch(r"page-\d{5}\.geojson", page.name)
     ]
-    return sum(
-        len(json.loads(page.read_text(encoding="utf-8")).get("features") or [])
-        for page in pages
-    )
+    def count_page(page):
+        return len(json.loads(page.read_text(encoding="utf-8")).get("features") or [])
+    # Bounded parallel reads avoid serial cloud-file hydration on local reviews.
+    # Every canonical page is still read and parsed; failures still fail the audit.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return sum(pool.map(count_page, pages))
 
 
 def main() -> None:
@@ -118,6 +122,7 @@ def main() -> None:
             "published-field-empty",
             "government-gis-omits-holder",
             "registry-checked-unavailable",
+            "identifier-only",
         }
         missing_holder_audit = 0
         inconsistent_holder_audit = 0
@@ -141,12 +146,18 @@ def main() -> None:
             issues.append("record-level holder audit totals do not match current record count")
         expired_count = sum(
             1 for feature in features
-            if key in {"british-columbia", "quebec", "northwest-territories"}
-            and str((feature.get("properties") or {}).get("expiryDate") or "")[:10]
+            if str((feature.get("properties") or {}).get("expiryDate") or "")[:10]
             and str((feature.get("properties") or {}).get("expiryDate"))[:10] < audited_at.date().isoformat()
         )
         if expired_count:
             issues.append(f"{expired_count} bundled records are past their published expiry date")
+        unconfirmed = sum(not eligible(p.get('kind'), p.get('status'), p.get('expiryDate'), audited_at.date().isoformat())
+                          for p in (f.get('properties') or {} for f in features))
+        if unconfirmed:
+            issues.append(f"{unconfirmed} bundled records do not satisfy conservative publication eligibility")
+        numeric_holders = sum(holder_fields(f.get('properties', {}).get('holder'))[1] is not None for f in features)
+        if numeric_holders:
+            issues.append(f"{numeric_holders} numeric source identifiers are incorrectly presented as holder names")
         overview_cell_count = None
         claim_overview = metadata.get("claimOverview")
         if claim_overview:
@@ -168,7 +179,7 @@ def main() -> None:
                     issues.append("claim overview exceeds the lightweight map budget")
         generated_at = datetime.fromisoformat(str(metadata["generatedAt"]).replace("Z", "+00:00"))
         age_hours = (audited_at - generated_at).total_seconds() / 3600
-        if age_hours > 48 and not source_unavailable and not retained_boundary:
+        if age_hours > 48 and not source_unavailable:
             issues.append(f"snapshot is {age_hours:.1f} hours old")
 
         lineage: list[dict[str, Any]] = []
@@ -200,12 +211,23 @@ def main() -> None:
                 / f"{key}_mining_by_territory.sqlite"
             )
             holder_source_gaps: list[dict[str, Any]] = []
-            with sqlite3.connect(db_path) as db:
+            with sqlite3.connect(f"file:{db_path.resolve()}?mode=ro&immutable=1", uri=True) as db:
                 normalized_count = int(db.execute("SELECT COUNT(*) FROM mining_records").fetchone()[0])
+                expected_eligible = sum(
+                    'assessment file' not in str(record_type or '').lower()
+                    and eligible('mine' if str(record_type or '').lower() in {'mine location', 'producing mine'} else category,
+                                 status, expiry, audited_at.date().isoformat())
+                    for category, record_type, status, expiry in db.execute('SELECT category, record_type, status, expiry_date FROM mining_records')
+                )
+                if expected_eligible != total_metadata_records:
+                    issues.append(f"source eligibility count mismatch: {expected_eligible} eligible source rows, {total_metadata_records} published")
+                if normalized_count and not expected_eligible:
+                    issues.append('All source rows withheld for current-status review; do not publish as verified zero coverage')
                 for layer in PROVINCES[key]["layers"]:
-                    total, published = db.execute(
+                    total, published, identifiers = db.execute(
                         """SELECT COUNT(*), SUM(CASE WHEN holder_or_owner IS NOT NULL
-                                                   AND TRIM(holder_or_owner)<>'' THEN 1 ELSE 0 END)
+                                                   AND TRIM(holder_or_owner)<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(holder_or_owner,',',''),';',''),'|',''),' ','') GLOB '*[^0-9]*' THEN 1 ELSE 0 END),
+                                   SUM(CASE WHEN TRIM(holder_or_owner)<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(holder_or_owner,',',''),';',''),'|',''),' ','') NOT GLOB '*[^0-9]*' THEN 1 ELSE 0 END)
                            FROM mining_records WHERE record_type=?""",
                         (layer.record_type,),
                     ).fetchone()
@@ -215,10 +237,11 @@ def main() -> None:
                             "governmentField": layer.holder,
                             "normalizedRecords": int(total or 0),
                             "recordsWithPublishedHolder": int(published or 0),
-                            "reviewRequired": not bool(layer.holder),
+                            "recordsWithSourceHolderIdentifier": int(identifiers or 0),
+                            "reviewRequired": not bool(layer.holder) or bool(identifiers),
                         }
                     )
-                    if layer.holder and total and not published:
+                    if layer.holder and total and not published and not identifiers:
                         issues.append(
                             f"{layer.record_type} maps government holder field {layer.holder} but populated no holders"
                         )

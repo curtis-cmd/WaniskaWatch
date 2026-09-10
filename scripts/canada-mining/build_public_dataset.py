@@ -25,6 +25,7 @@ from shapely.geometry import mapping  # type: ignore
 from shapely.ops import transform  # type: ignore
 
 from config import PROVINCES
+from publication_policy import eligible, holder_fields
 
 COLORS = [
     "#C5723C",
@@ -62,15 +63,8 @@ def is_current_record(row: sqlite3.Row, as_of_date: str, strict_expiry: bool = F
         return False
     if any(marker in status for marker in INACTIVE_STATUS_MARKERS):
         return False
-    if row["category"] == "claim" and status in {"converted", "leased", "refused", "withdrawn"}:
-        return False
-    if record_type in {"mine location", "producing mine"}:
-        return any(marker in status for marker in CURRENT_STATUS_MARKERS) and "pending" not in status
-    explicitly_current = any(marker in status for marker in CURRENT_STATUS_MARKERS)
-    expiry_date = str(row["expiry_date"] or "")[:10]
-    if expiry_date and expiry_date < as_of_date and (strict_expiry or not explicitly_current):
-        return False
-    return True
+    kind = "mine" if record_type in {"mine location", "producing mine"} else row["category"]
+    return eligible(kind, status, row["expiry_date"], as_of_date)
 
 
 def write_claim_overview(
@@ -84,7 +78,7 @@ def write_claim_overview(
     """Create a small current-claim density layer for province-scale navigation."""
     grid_degrees = 1.0
     cells: dict[tuple[int, int], dict[str, float | int]] = {}
-    as_of_date = generated_at[:10]
+    as_of_date = datetime.now(timezone.utc).date().isoformat()
     rows = db.execute(
         """SELECT category, record_type, status, expiry_date,
                   centroid_longitude, centroid_latitude
@@ -262,7 +256,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         (data_root / f"{province_key}-mining" / "raw" / "download_manifest.json").read_text()
     )
     generated_at = raw_manifest["retrieved_at"]
-    db = sqlite3.connect(database)
+    # The normalization job has closed this immutable snapshot before publishing.
+    db = sqlite3.connect(f"file:{database.resolve()}?mode=ro&immutable=1", uri=True)
     db.row_factory = sqlite3.Row
     to_wgs84 = Transformer.from_crs("EPSG:3347", "EPSG:4326", always_xy=True)
 
@@ -316,7 +311,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
         "viewport-live" if province_key in {"ontario", "yukon", "nunavut"} else "included",
     )
     omitted_claim_polygons = claim_delivery != "included"
-    as_of_date = generated_at[:10]
+    as_of_date = datetime.now(timezone.utc).date().isoformat()
     holder_override_path = (
         data_root / f"{province_key}-mining" / "processed" / "holder_overrides.csv"
     )
@@ -367,15 +362,18 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             continue
         counts[row["category"]] += 1
         treaty_counts[row["territory_name"]] += 1
-        if row["holder_or_owner"]:
-            holders.add(row["holder_or_owner"])
+        holder, holder_identifier = holder_fields(row["holder_or_owner"])
+        if holder:
+            holders.add(holder)
             holder_record_count += 1
         else:
             holder_review_count += 1
         registry_check = holder_registry_checks.get((row["external_id"] or "").strip())
         holder_availability = (
             "published"
-            if row["holder_or_owner"]
+            if holder
+            else "identifier-only"
+            if holder_identifier
             else "registry-checked-unavailable"
             if registry_check
             else "published-field-empty"
@@ -396,7 +394,8 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                             "OBJECTID": row["source_object_id"],
                             "TIT_NO": row["external_id"],
                             "STATUS": row["status"],
-                            "OWNERS": row["holder_or_owner"],
+                            "OWNERS": holder,
+                            "HOLDER_SOURCE_IDENTIFIER": holder_identifier,
                             "HOLDER_AVAILABILITY": holder_availability,
                             "ISSUE_DATE": row["issue_date"],
                             "EXPIRY_DATE": row["expiry_date"],
@@ -426,12 +425,13 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                     "treaty": row["territory_name"],
                     "areaHa": row["reported_area_hectares"],
                     "commodity": row["commodity"],
-                    "holder": row["holder_or_owner"],
+                    "holder": holder,
+                    "holderSourceIdentifier": holder_identifier,
                     "holderEvidence": (
                         "Public registry export"
-                        if registry_check and row["holder_or_owner"]
+                        if registry_check and holder
                         else f"Published field in {row['source_name']}"
-                        if row["holder_or_owner"]
+                        if holder
                         else None
                     ),
                     "holderEvidenceUrl": (
@@ -442,10 +442,10 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                     "holderVerifiedAt": (
                         registry_check.get("evidence_date")
                         if registry_check
-                        else as_of_date
+                        else generated_at[:10]
                     ),
                     "holderAvailability": holder_availability,
-                    "holderReviewRequired": not bool(row["holder_or_owner"]),
+                    "holderReviewRequired": not bool(holder),
                     "issueDate": row["issue_date"],
                     "expiryDate": row["expiry_date"],
                     "longitude": round(row["centroid_longitude"], 5),

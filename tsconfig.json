@@ -31,6 +31,8 @@
     "**/*.mts"
   ],
   "exclude": [
+    "work",
+    "dist",
     "node_modules",
     "build",
     "db",

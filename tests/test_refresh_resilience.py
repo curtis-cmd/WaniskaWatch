@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +18,7 @@ class RetainedSnapshotTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.public = self.root / "public/data"
         self.public.mkdir(parents=True)
-        self.date = "2026-08-31T18:00:00+00:00"
+        self.date = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         self.dataset = {"metadata": {"province": "Alberta", "generatedAt": self.date, "currentOnly": True, "featureCount": 1, "databaseRecordCount": 1, "recordedHolderRecordCount": 1, "holderReviewRequiredCount": 0}, "features": [{"id": "test", "properties": {"status": "Active", "holder": "Example", "holderAvailability": "published"}}]}
         self.write("alberta-mining.json", self.dataset)
         self.write("alberta-territories.json", {"type": "FeatureCollection", "features": []})
@@ -52,6 +53,25 @@ class RetainedSnapshotTests(unittest.TestCase):
 
     def test_new_date_is_not_allowed_on_retained_snapshot(self):
         with self.assertRaises(ValueError): verify_retained(self.root, "alberta", "2026-09-08T18:00:00+00:00")
+
+    def test_boundary_outage_cannot_extend_stale_mining_verification(self):
+        old = (datetime.now(timezone.utc) - timedelta(hours=49)).isoformat()
+        self.dataset['metadata']['generatedAt'] = old
+        self.write('alberta-mining.json', self.dataset)
+        self.audit['liveJurisdictions'][0]['generatedAt'] = old
+        self.write('data-audit.json', self.audit)
+        capture(self.root)
+        result = self.audit_command()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('hours old', result.stdout)
+
+    def test_incomplete_boundary_refresh_withholds_without_changing_source_date(self):
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/canada-mining/update_jurisdiction_status.py'), 'alberta', 'boundary-source-unavailable', '--root', str(self.root)], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        status = json.loads((self.public / 'jurisdiction-status.json').read_text())['jurisdictions']['alberta']
+        self.assertEqual(status['state'], 'source-unavailable')
+        self.assertEqual(status['boundaryState'], 'source-unavailable')
+        self.assertEqual(status['lastVerified'], self.date)
 
     def test_fresh_claim_requires_fresh_lineage(self):
         self.write("jurisdiction-status.json", {"jurisdictions": {"alberta": {"state": "verified", "boundaryState": "verified"}}})

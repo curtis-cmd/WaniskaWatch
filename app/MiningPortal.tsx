@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isCurrentActivity } from './current-record.mjs';
+import { isCurrentActivity, normalizeHolder } from './current-record.mjs';
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Map as LeafletMap, PathOptions } from "leaflet";
 
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
 type DataStatus = "loading" | "ready" | "error";
-type HolderAvailability = "published" | "published-field-empty" | "government-gis-omits-holder" | "registry-checked-unavailable";
+type HolderAvailability = "published" | "published-field-empty" | "government-gis-omits-holder" | "registry-checked-unavailable" | "identifier-only";
 type ProvinceKey =
   | "manitoba"
   | "saskatchewan"
@@ -42,6 +42,7 @@ type ActivityProperties = {
   areaHa: number | null;
   commodity: string | null;
   holder: string | null;
+  holderSourceIdentifier?: string | null;
   holderEvidence: string | null;
   holderEvidenceUrl?: string | null;
   holderVerifiedAt?: string | null;
@@ -270,6 +271,7 @@ function recordedPartyLabel(kind: ActivityKind) {
 }
 
 function holderUnavailableText(properties: ActivityProperties) {
+  if (properties.holderSourceIdentifier) return "Name unresolved in current source";
   if (properties.holder) return properties.holder;
   if (properties.holderAvailability === "government-gis-omits-holder") {
     return "Unavailable in this government GIS dataset — registry review required";
@@ -284,6 +286,7 @@ function holderUnavailableText(properties: ActivityProperties) {
 }
 
 function normalizePublishedFields(properties: ActivityProperties): ActivityProperties {
+  properties = normalizeHolder(properties);
   const publishedStatus = String(properties.status || "").trim();
   const sourceName = String(properties.sourceName || "").toLowerCase();
   // Ontario licences of occupation can carry this classification too, not only leases.
@@ -554,7 +557,7 @@ export default function MiningPortal() {
         setClaimOverview(null);
         setLiveClaims([]);
         setSelected(null);
-        setDataStatus("loading");
+        setDataStatus("error");
       }, 0);
       return () => window.clearTimeout(resetUnavailableProvince);
     }
@@ -1017,7 +1020,7 @@ export default function MiningPortal() {
         setLiveClaims(claims);
         setClaimViewportNote(
           payload.metadata?.truncated
-            ? `${Number(payload.metadata.count).toLocaleString("en-CA")} claims intersect this view; showing the first 2,000. Zoom in for complete local detail.`
+            ? `${claims.length.toLocaleString("en-CA")} eligible claims loaded; additional source results remain. Zoom in for more local detail.`
             : `${claims.length.toLocaleString("en-CA")} ${provinceName} claim polygons loaded in this view.`,
         );
       } catch (error) {
@@ -1309,7 +1312,7 @@ export default function MiningPortal() {
     ))
     : [province];
   const updated = formatDate(generatedAt, "Loading");
-  const snapshotNeedsRefresh = generatedAt && Date.now() - Date.parse(generatedAt) > 7 * 86400000;
+  const snapshotNeedsRefresh = generatedAt && Date.now() - Date.parse(generatedAt) > 48 * 3600000;
   const selectedLastVerified = formatDate(
     jurisdictionSourceStatus?.lastVerified || selected?.properties.lastUpdated || generatedAt,
     "Not available",
@@ -1351,7 +1354,7 @@ export default function MiningPortal() {
     </section>
 
     <section className="watch-snapshot" aria-label="Current data coverage">
-      <div><span>VERIFIED AS OF</span><strong>{dataStatus === "ready" ? updated : "Loading…"}</strong></div>
+      <div><span>VERIFIED AS OF</span><strong>{dataStatus === "ready" ? updated : dataStatus === "error" ? "Temporarily unavailable" : "Loading…"}</strong></div>
       <div className="watch-record-snapshot">
         <span>TOTAL CURRENT RECORDS</span>
         <strong>{dataStatus === "ready" ? totalCurrentRecords.toLocaleString("en-CA") : "—"}</strong>
@@ -1534,6 +1537,7 @@ export default function MiningPortal() {
                 ? `Reproduced from the cited public source; holder checked ${formatDate(selected.properties.holderVerifiedAt || selected.properties.lastUpdated)}`
                 : "Waniskâ Watch has flagged this record for holder-source review; verify through the official registry before acting"}</small></dd></div>
               {selected.properties.responsibleAuthority && <div><dt>Responsible authority</dt><dd>{selected.properties.responsibleAuthority}</dd></div>}
+              {selected.properties.holderSourceIdentifier && <div><dt>Source holder identifier</dt><dd>{selected.properties.holderSourceIdentifier}<small>This is an identifier, not a verified company or individual name</small></dd></div>}
               {selected.properties.location && <div><dt>Published location</dt><dd>{selected.properties.location}</dd></div>}
               <div><dt>Area</dt><dd>{selected.properties.areaHa == null ? "Not published" : `${fmt(selected.properties.areaHa)} ha`}</dd></div>
               <div><dt>Commodity</dt><dd>{selected.properties.commodity || "Not published"}<small>{selected.properties.commodity ? "Source verified" : "Public source incomplete"}</small></dd></div>
@@ -1576,12 +1580,12 @@ export default function MiningPortal() {
         </div>
       </div>
       <div className="watch-coverage-note" id="coverage-note" role="status">
-        {dataStatus === "ready" && snapshotNeedsRefresh && <strong>Snapshot more than seven days old—re-verification is needed. </strong>}
+        {dataStatus === "ready" && snapshotNeedsRefresh && <strong>Verification window elapsed—re-verification is needed. </strong>}
         {dataStatus === "ready" ? <><strong>{provinceConfig.name} coverage is verified as of {selectedLastVerified}.</strong> {jurisdictionSourceStatus?.boundaryState && jurisdictionSourceStatus.boundaryState !== "verified" && <span>{jurisdictionSourceStatus.message} </span>}Records are not guaranteed real-time or individually confirmed against every registry entry. Jurisdictions that cannot be verified are temporarily removed.</> : dataStatus === "error" ? "Coverage could not be loaded. Use the official sources below to verify current information." : "Loading coverage and source verification dates…"}
       </div>
       <aside className="watch-reliance-banner" aria-label="Important non-reliance notice">
         <strong>Information only—do not rely on this map for legal, regulatory, consultation, investment or land-use decisions.</strong>
-        <span>This view excludes clearly inactive, expired and historical records. A current government status or documented renewal/reactivation takes priority over an older due date. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the information notice.</a></span>
+        <span>This view excludes historical records and records with unresolved current-status or expiry conflicts. A generic active label does not override a past expiry date. Withheld records may return after current source evidence supports inclusion. Public information may still be incomplete, delayed or inaccurate and must be independently verified. <a href="#legal-notice">Read the information notice.</a></span>
       </aside>
     </section>
 
@@ -1638,6 +1642,7 @@ export default function MiningPortal() {
       <div className="watch-legal-notice">
         <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Verification is date-specific: records are not guaranteed real-time and have not necessarily been individually confirmed against every registry entry. Waniskâ Watch temporarily removes a jurisdiction when its government source cannot be verified and restores it only after a successful source refresh and audit.</p>
         <p>Waniskâ Watch compiles and continually updates its database using publicly available government records and other third-party sources. Despite reasonable efforts to keep the database current, records, maps, boundaries, contacts and links may from time to time be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
+        <p>Records with unresolved expiry conflicts or insufficient current-status evidence are temporarily excluded from public listings and maps. Exclusion does not establish that a title is legally expired or invalid; renewed records may return after source verification.</p>
         <p>Company and individual names are reproduced as recorded in cited public sources for identification and research. Inclusion does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity beyond the status shown. Records may change and must be verified with the responsible authority.</p>
         <p><strong>The information must be independently verified and must not be relied upon.</strong> Before acting, confirm the information with the responsible government registry and the affected Nation, community, rights holder, lands office or consultation office, as appropriate.</p>
         <p className="watch-correction-notice"><strong>See something that should be corrected?</strong> <a href="mailto:info@waniskaservices.ca?subject=Wanisk%C3%A2%20Watch%20correction%20request">Report an error or request a correction.</a> Please include the record ID and official source where available.</p>

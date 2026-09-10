@@ -21,6 +21,7 @@ export default function RecordDetails({record, provinceName, path, onClose}: {
     <h3>{p.name || p.id}</h3><p>{p.kindLabel || p.kind} · {provinceName}</p>
     <dl><dt>Record ID</dt><dd>{p.id}</dd><dt>{partyLabel}</dt><dd>{p.holder || 'Holder source review required'}</dd>
       <dt>Published status</dt><dd>{p.status || 'Not supplied in this source field'}</dd>
+      {p.holderSourceIdentifier && <><dt>Source holder identifier—not a verified name</dt><dd>{p.holderSourceIdentifier}</dd></>}
       {p.rightsClassification && <><dt>Rights classification</dt><dd>{p.rightsClassification}</dd></>}
       <dt>Verified as of</dt><dd>{verified}</dd><dt>Source</dt><dd>{p.sourceName || 'See official source register'}</dd>
     </dl>

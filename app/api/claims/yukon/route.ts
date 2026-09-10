@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unavailableJurisdictionResponse } from "../sourceVerification";
+import { unavailableJurisdictionResponse, eligibleSourceFeatures } from "../sourceVerification";
 
 const CLAIM_LAYERS = [
   { id: 11, label: "Placer claim" },
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   });
   const loadLayer = async ({ id, label }: (typeof CLAIM_LAYERS)[number]) => {
     const params = new URLSearchParams({
-      where: "TENURE_STATUS='Active'",
+      where: `TENURE_STATUS='Active' AND (EXPIRY_DATE IS NULL OR EXPIRY_DATE >= DATE '${new Date().toISOString().slice(0, 10)}')`,
       geometry,
       geometryType: "esriGeometryEnvelope",
       inSR: "4326",
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     ]);
     return {
       count: Number(countPayload.count || 0),
-      features: (featurePayload.features || []).map((feature: { properties?: Record<string, unknown> }) => ({
+      features: eligibleSourceFeatures(featurePayload.features).map((feature: { properties?: Record<string, unknown> }) => ({
         ...feature,
         properties: { ...(feature.properties || {}), _WANISKA_CLAIM_TYPE: label },
       })),

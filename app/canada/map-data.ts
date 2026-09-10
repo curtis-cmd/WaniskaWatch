@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 export { isCurrentActivity as currentRecord } from '../current-record.mjs';
+import { normalizeHolder } from '../current-record.mjs';
 
 export type Kind = 'claim' | 'lease' | 'exploration' | 'mine';
 export type RecordFeature = Feature<Geometry, Record<string, any>>;
@@ -37,7 +38,7 @@ export function normalizeRecord(feature: RecordFeature, province: string, metada
   if (province === 'ontario' && /^(?:mining(?: and surface)?|surface) rights(?: only)?$/i.test(props.status || '')) {
     props.rightsClassification = props.status; props.status = null;
   }
-  return {...feature, properties: {...props, province, sourceName: props.sourceName || metadata.source,
+  return {...feature, properties: {...normalizeHolder(props), province, sourceName: props.sourceName || metadata.source,
     sourceUrl: props.sourceUrl || metadata.sourceUrl, lastUpdated: props.lastUpdated || metadata.generatedAt || verifiedAt}};
 }
 export async function jsonData(url: string, signal: AbortSignal) {

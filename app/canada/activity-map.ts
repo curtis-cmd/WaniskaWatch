@@ -71,12 +71,13 @@ export function mountActivityLayers(L: typeof Leaflet, map: Leaflet.Map, options
         cached('/data/canada-detail-index.json', signal), cached('/data/canada-provinces.json', signal),
       ]);
       if (signal.aborted || stopped) return;
-      options.onGroups(index.groups);
+      const allowed = new Set(options.jurisdictions.map(j => j.key));
+      options.onGroups(index.groups.filter((g: any) => allowed.has(g.properties.province)));
       const visible = options.jurisdictions.filter(j => provinces.features.some((f: RecordFeature) => f.properties.key === j.key && intersects(geometryBounds(f.geometry), bounds)));
       if (zoom < 5) notes.push('Grouped activity overview. Zoom closer for individual records.');
       else {
         options.onNote('Loading records for this map view…');
-        const matching = index.tiles.filter((t: any) => settings.kinds.has(t.kind) && intersects(t.bounds, bounds));
+        const matching = index.tiles.filter((t: any) => allowed.has(t.province) && settings.kinds.has(t.kind) && intersects(t.bounds, bounds));
         // Bound payloads and rendering at every zoom. Dense views stay explicitly partial.
         const tiles = matching.slice(0, 12);
         const records: RecordFeature[] = [];
