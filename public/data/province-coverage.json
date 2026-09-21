@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-20T15:31:54.168988+00:00",
+    "generatedAt": "2026-09-21T18:00:41.124399+00:00",
     "note": "Current verified provincial mining coverage available in Waniskâ Watch; inactive and historical records are excluded."
   },
   "provinces": [
     {
+      "key": "british-columbia",
+      "name": "British Columbia",
+      "abbreviation": "BC",
+      "generatedAt": "2026-09-21T17:08:59.847102+00:00",
+      "recordCount": 39630,
+      "mapFeatureCount": 1426,
+      "counts": {
+        "claim": 38204,
+        "operation": 610,
+        "exploration": 816
+      },
+      "recordedHolderCount": 3754,
+      "recordedHolderRecordCount": 39630,
+      "holderReviewRequiredCount": 0,
+      "territoryCount": 4,
+      "miningDataset": "/data/british-columbia-mining.json",
+      "territoryDataset": "/data/british-columbia-territories.json",
+      "claimDelivery": "viewport-live",
+      "claimOverview": "/data/british-columbia-claim-overview.json"
+    },
+    {
       "key": "nova-scotia",
       "name": "Nova Scotia",
       "abbreviation": "NS",
-      "generatedAt": "2026-09-20T14:48:34.943440+00:00",
+      "generatedAt": "2026-09-21T17:15:04.060763+00:00",
       "recordCount": 2072,
       "mapFeatureCount": 2072,
       "counts": {
@@ -28,7 +49,7 @@
       "key": "newfoundland-and-labrador",
       "name": "Newfoundland and Labrador",
       "abbreviation": "NL",
-      "generatedAt": "2026-09-20T14:47:41.863604+00:00",
+      "generatedAt": "2026-09-21T17:14:08.790858+00:00",
       "recordCount": 4442,
       "mapFeatureCount": 4442,
       "counts": {
@@ -47,7 +68,7 @@
       "key": "yukon",
       "name": "Yukon",
       "abbreviation": "YT",
-      "generatedAt": "2026-09-20T15:29:39.590948+00:00",
+      "generatedAt": "2026-09-21T17:58:20.073505+00:00",
       "recordCount": 198991,
       "mapFeatureCount": 2165,
       "counts": {
@@ -67,7 +88,7 @@
       "key": "nunavut",
       "name": "Nunavut",
       "abbreviation": "NU",
-      "generatedAt": "2026-09-20T14:49:16.022114+00:00",
+      "generatedAt": "2026-09-21T17:15:50.406300+00:00",
       "recordCount": 5034,
       "mapFeatureCount": 569,
       "counts": {
@@ -88,7 +109,7 @@
       "key": "northwest-territories",
       "name": "Northwest Territories",
       "abbreviation": "NT",
-      "generatedAt": "2026-09-20T14:48:19.437363+00:00",
+      "generatedAt": "2026-09-21T17:14:46.029344+00:00",
       "recordCount": 1945,
       "mapFeatureCount": 1945,
       "counts": {
@@ -109,15 +130,15 @@
       "key": "quebec",
       "name": "Quebec",
       "abbreviation": "QC",
-      "generatedAt": "2026-09-20T15:23:02.140811+00:00",
-      "recordCount": 218723,
+      "generatedAt": "2026-09-21T17:51:21.170200+00:00",
+      "recordCount": 218519,
       "mapFeatureCount": 503,
       "counts": {
-        "claim": 218220,
+        "claim": 218016,
         "operation": 503
       },
-      "recordedHolderCount": 1351,
-      "recordedHolderRecordCount": 218723,
+      "recordedHolderCount": 1350,
+      "recordedHolderRecordCount": 218519,
       "holderReviewRequiredCount": 0,
       "territoryCount": 5,
       "miningDataset": "/data/quebec-mining.json",
@@ -129,7 +150,7 @@
       "key": "saskatchewan",
       "name": "Saskatchewan",
       "abbreviation": "SK",
-      "generatedAt": "2026-09-20T15:28:16.743300+00:00",
+      "generatedAt": "2026-09-21T17:56:59.950400+00:00",
       "recordCount": 7189,
       "mapFeatureCount": 7189,
       "counts": {
@@ -149,17 +170,17 @@
       "key": "ontario",
       "name": "Ontario",
       "abbreviation": "ON",
-      "generatedAt": "2026-09-20T15:11:18.912247+00:00",
-      "recordCount": 391741,
-      "mapFeatureCount": 687,
+      "generatedAt": "2026-09-21T17:38:52.157598+00:00",
+      "recordCount": 391483,
+      "mapFeatureCount": 686,
       "counts": {
-        "claim": 391054,
-        "exploration": 643,
+        "claim": 390797,
+        "exploration": 642,
         "operation": 44
       },
-      "recordedHolderCount": 1362,
-      "recordedHolderRecordCount": 391054,
-      "holderReviewRequiredCount": 687,
+      "recordedHolderCount": 1360,
+      "recordedHolderRecordCount": 390797,
+      "holderReviewRequiredCount": 686,
       "territoryCount": 7,
       "miningDataset": "/data/ontario-mining.json",
       "territoryDataset": "/data/ontario-territories.json",
