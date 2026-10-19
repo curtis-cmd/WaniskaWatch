@@ -1,70 +1,70 @@
 {
   "metadata": {
-    "updatedAt": "2026-10-18T15:30:52.963256+00:00",
+    "updatedAt": "2026-10-19T18:15:32.631463+00:00",
     "note": "Only jurisdictions verified during the latest successful refresh are published. An unavailable source remains documented but its records are temporarily unpublished."
   },
   "jurisdictions": {
     "alberta": {
       "state": "source-unavailable",
-      "checkedAt": "2026-10-18T14:40:50.600886+00:00",
-      "lastVerified": "2026-10-18T14:40:42.201873+00:00",
+      "checkedAt": "2026-10-19T17:33:27.598036+00:00",
+      "lastVerified": "2026-10-19T17:33:19.088597+00:00",
       "lastVerifiedRecordCount": 0,
-      "message": "Verification checks did not pass; records temporarily unpublished—last verified October 18, 2026.",
+      "message": "Verification checks did not pass; records temporarily unpublished—last verified October 19, 2026.",
       "failureReason": "audit-failed",
       "sourceUrl": "https://www.alberta.ca/minerals-permits-and-leasing-overview"
     },
     "manitoba": {
       "state": "verified",
-      "checkedAt": "2026-10-18T14:40:41.724887+00:00",
-      "lastVerified": "2026-10-18T14:38:13.480336+00:00",
+      "checkedAt": "2026-10-19T17:33:18.705063+00:00",
+      "lastVerified": "2026-10-19T17:30:49.697351+00:00",
       "lastVerifiedRecordCount": 7970,
       "message": "Manitoba source refresh verified.",
       "sourceUrl": "https://rdmaps.gov.mb.ca/arcgis/rest/services/iMaQs/imaqsMining/MapServer",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T14:38:13.480336+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:30:49.697351+00:00"
     },
     "british-columbia": {
       "state": "verified",
-      "checkedAt": "2026-10-18T14:43:32.170903+00:00",
-      "lastVerified": "2026-10-18T14:40:50.822749+00:00",
-      "lastVerifiedRecordCount": 39510,
+      "checkedAt": "2026-10-19T17:34:46.533020+00:00",
+      "lastVerified": "2026-10-19T17:33:27.775821+00:00",
+      "lastVerifiedRecordCount": 39507,
       "message": "British Columbia source refresh verified.",
       "sourceUrl": "https://catalogue.data.gov.bc.ca/dataset/923c5330-c798-4276-82c1-705000c5caac",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T14:40:50.822749+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:33:27.775821+00:00"
     },
     "new-brunswick": {
       "state": "source-unavailable",
-      "checkedAt": "2026-10-18T14:46:09.671291+00:00",
-      "lastVerified": "2026-10-17T14:18:10.986289+00:00",
+      "checkedAt": "2026-10-19T17:38:12.187950+00:00",
+      "lastVerified": "2026-10-19T17:34:47.352340+00:00",
       "lastVerifiedRecordCount": 0,
-      "message": "Source temporarily unavailable—last verified October 17, 2026.",
-      "failureReason": "source-unavailable",
+      "message": "Verification checks did not pass; records temporarily unpublished—last verified October 19, 2026.",
+      "failureReason": "audit-failed",
       "sourceUrl": "https://geonb.snb.ca/"
     },
     "newfoundland-and-labrador": {
       "state": "verified",
-      "checkedAt": "2026-10-18T14:46:43.505137+00:00",
-      "lastVerified": "2026-10-18T14:46:09.895112+00:00",
-      "lastVerifiedRecordCount": 4479,
+      "checkedAt": "2026-10-19T17:38:37.772647+00:00",
+      "lastVerified": "2026-10-19T17:38:12.358697+00:00",
+      "lastVerifiedRecordCount": 4482,
       "message": "Newfoundland and Labrador source refresh verified.",
       "sourceUrl": "https://www.gov.nl.ca/em/mines/geoscience-online/",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T14:46:09.895112+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:38:12.358697+00:00"
     },
     "northwest-territories": {
       "state": "verified",
-      "checkedAt": "2026-10-18T14:46:57.719192+00:00",
-      "lastVerified": "2026-10-18T14:46:44.105179+00:00",
+      "checkedAt": "2026-10-19T17:38:51.683817+00:00",
+      "lastVerified": "2026-10-19T17:38:38.149316+00:00",
       "lastVerifiedRecordCount": 2094,
       "message": "Northwest Territories source refresh verified.",
       "sourceUrl": "https://www.geomatics.gov.nt.ca/en/services/web-mapping-applications/mining-recorders-office-mineral-tenure-web-map",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T14:46:44.105179+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:38:38.149316+00:00"
     },
     "nova-scotia": {
       "state": "source-unavailable",
-      "checkedAt": "2026-10-18T14:47:13.548604+00:00",
+      "checkedAt": "2026-10-19T17:39:01.032940+00:00",
       "lastVerified": "2026-10-12T20:27:37.015712+00:00",
       "lastVerifiedRecordCount": 2084,
       "message": "Source temporarily unavailable—last verified October 12, 2026.",
@@ -73,27 +73,27 @@
     },
     "nunavut": {
       "state": "verified",
-      "checkedAt": "2026-10-18T15:10:12.872130+00:00",
-      "lastVerified": "2026-10-18T14:47:13.770648+00:00",
-      "lastVerifiedRecordCount": 5034,
+      "checkedAt": "2026-10-19T17:58:52.053429+00:00",
+      "lastVerified": "2026-10-19T17:39:01.173324+00:00",
+      "lastVerifiedRecordCount": 5033,
       "message": "Nunavut source refresh verified.",
       "sourceUrl": "https://open.canada.ca/data/en/dataset/2e6f97df-eeae-462b-902d-4453a1c1034b",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T14:47:13.770648+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:39:01.173324+00:00"
     },
     "ontario": {
       "state": "verified",
-      "checkedAt": "2026-10-18T15:22:41.163946+00:00",
-      "lastVerified": "2026-10-18T15:10:13.861499+00:00",
-      "lastVerifiedRecordCount": 394923,
+      "checkedAt": "2026-10-19T18:08:32.715754+00:00",
+      "lastVerified": "2026-10-19T17:58:52.718832+00:00",
+      "lastVerifiedRecordCount": 397030,
       "message": "Ontario source refresh verified.",
       "sourceUrl": "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MLAS",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T15:10:13.861499+00:00"
+      "boundaryVerifiedAt": "2026-10-19T17:58:52.718832+00:00"
     },
     "quebec": {
       "state": "source-unavailable",
-      "checkedAt": "2026-10-18T15:27:15.968479+00:00",
+      "checkedAt": "2026-10-19T18:13:07.844885+00:00",
       "lastVerified": "2026-10-15T16:25:55.725501+00:00",
       "lastVerifiedRecordCount": 213862,
       "message": "Source temporarily unavailable—last verified October 15, 2026.",
@@ -102,23 +102,23 @@
     },
     "saskatchewan": {
       "state": "verified",
-      "checkedAt": "2026-10-18T15:28:22.942063+00:00",
-      "lastVerified": "2026-10-18T15:27:16.197968+00:00",
+      "checkedAt": "2026-10-19T18:14:07.090430+00:00",
+      "lastVerified": "2026-10-19T18:13:07.994581+00:00",
       "lastVerifiedRecordCount": 7123,
       "message": "Saskatchewan source refresh verified.",
       "sourceUrl": "https://gis.saskatchewan.ca/arcgis/rest/services/Economy",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T15:27:16.197968+00:00"
+      "boundaryVerifiedAt": "2026-10-19T18:13:07.994581+00:00"
     },
     "yukon": {
       "state": "verified",
-      "checkedAt": "2026-10-18T15:30:52.963256+00:00",
-      "lastVerified": "2026-10-18T15:28:28.073598+00:00",
-      "lastVerifiedRecordCount": 198252,
+      "checkedAt": "2026-10-19T18:15:32.631463+00:00",
+      "lastVerified": "2026-10-19T18:14:10.417356+00:00",
+      "lastVerifiedRecordCount": 198249,
       "message": "Yukon source refresh verified.",
       "sourceUrl": "https://open.yukon.ca/data/?tags=mining",
       "boundaryState": "verified",
-      "boundaryVerifiedAt": "2026-10-18T15:28:28.073598+00:00"
+      "boundaryVerifiedAt": "2026-10-19T18:14:10.417356+00:00"
     }
   }
 }
