@@ -1,10 +1,10 @@
 {
   "metadata": {
-    "auditedAt": "2026-11-01T17:55:10.456347+00:00",
+    "auditedAt": "2026-11-02T21:38:34.746630+00:00",
     "result": "passed-with-source-outages",
-    "liveJurisdictionCount": 8,
-    "unavailableJurisdictionCount": 4,
-    "totalCurrentRecordCount": 473684,
+    "liveJurisdictionCount": 9,
+    "unavailableJurisdictionCount": 3,
+    "totalCurrentRecordCount": 870717,
     "scope": "Currently published government-source mining records, canonical raw-page lineage, identifiers, statuses, freshness, and public feature counts. Unavailable jurisdictions are documented but unpublished."
   },
   "liveJurisdictions": [
@@ -14,13 +14,13 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:11:49.653624+00:00",
+      "sourceCheckedAt": "2026-11-02T20:51:33.565752+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:09:01.186062+00:00",
+      "lastVerified": "2026-11-02T20:48:48.721059+00:00",
       "availabilityMessage": "Manitoba source refresh verified.",
-      "generatedAt": "2026-11-01T17:09:01.186062+00:00",
-      "ageHours": 0.77,
+      "generatedAt": "2026-11-02T20:48:48.721059+00:00",
+      "ageHours": 0.83,
       "currentRecordCount": 7968,
       "bundledFeatureCount": 7968,
       "claimDelivery": "included",
@@ -39,26 +39,26 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:13:18.578477+00:00",
+      "sourceCheckedAt": "2026-11-02T20:53:00.149022+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:11:58.953675+00:00",
+      "lastVerified": "2026-11-02T20:51:44.137561+00:00",
       "availabilityMessage": "British Columbia source refresh verified.",
-      "generatedAt": "2026-11-01T17:11:58.953675+00:00",
-      "ageHours": 0.72,
-      "currentRecordCount": 39769,
+      "generatedAt": "2026-11-02T20:51:44.137561+00:00",
+      "ageHours": 0.78,
+      "currentRecordCount": 39761,
       "bundledFeatureCount": 1463,
       "claimDelivery": "viewport-live",
       "claimOverviewCellCount": 132,
-      "recordedHolderCount": 3780,
-      "recordedHolderRecordCount": 39769,
+      "recordedHolderCount": 3778,
+      "recordedHolderRecordCount": 39761,
       "holderReviewRequiredCount": 0,
       "holderSourceAudit": [
         {
           "recordType": "Mineral, placer or coal claim",
           "governmentField": "OWNERS",
-          "normalizedRecords": 38306,
-          "recordsWithPublishedHolder": 38306,
+          "normalizedRecords": 38298,
+          "recordsWithPublishedHolder": 38298,
           "recordsWithSourceHolderIdentifier": 0,
           "reviewRequired": false
         },
@@ -79,12 +79,12 @@
           "reviewRequired": false
         }
       ],
-      "normalizedRecordCount": 39769,
+      "normalizedRecordCount": 39761,
       "lineage": [
         {
           "layer": "mineral_placer_coal_claims",
-          "manifest": 38306,
-          "canonicalRaw": 38306
+          "manifest": 38298,
+          "canonicalRaw": 38298
         },
         {
           "layer": "mineral_placer_coal_leases",
@@ -105,9 +105,9 @@
       "status": "source-unavailable",
       "published": false,
       "sourceAvailability": "source-unavailable",
-      "sourceCheckedAt": "2026-11-01T17:11:58.739866+00:00",
-      "lastVerified": "2026-11-01T17:11:50.122364+00:00",
-      "availabilityMessage": "Verification checks did not pass; records temporarily unpublished—last verified November 1, 2026.",
+      "sourceCheckedAt": "2026-11-02T20:51:43.962771+00:00",
+      "lastVerified": "2026-11-02T20:51:33.957112+00:00",
+      "availabilityMessage": "Verification checks did not pass; records temporarily unpublished—last verified November 2, 2026.",
       "generatedAt": null,
       "ageHours": null,
       "currentRecordCount": 0,
@@ -126,9 +126,9 @@
       "status": "source-unavailable",
       "published": false,
       "sourceAvailability": "source-unavailable",
-      "sourceCheckedAt": "2026-11-01T17:16:44.465208+00:00",
-      "lastVerified": "2026-11-01T17:13:19.836734+00:00",
-      "availabilityMessage": "Verification checks did not pass; records temporarily unpublished—last verified November 1, 2026.",
+      "sourceCheckedAt": "2026-11-02T20:56:20.285979+00:00",
+      "lastVerified": "2026-11-02T20:53:01.138747+00:00",
+      "availabilityMessage": "Verification checks did not pass; records temporarily unpublished—last verified November 2, 2026.",
       "generatedAt": null,
       "ageHours": null,
       "currentRecordCount": 0,
@@ -147,7 +147,7 @@
       "status": "source-unavailable",
       "published": false,
       "sourceAvailability": "source-unavailable",
-      "sourceCheckedAt": "2026-11-01T17:19:58.472112+00:00",
+      "sourceCheckedAt": "2026-11-02T20:59:23.319929+00:00",
       "lastVerified": "2026-10-12T20:27:37.015712+00:00",
       "availabilityMessage": "Source temporarily unavailable—last verified October 12, 2026.",
       "generatedAt": null,
@@ -168,36 +168,36 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:17:20.915271+00:00",
+      "sourceCheckedAt": "2026-11-02T20:56:48.219411+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:16:44.679376+00:00",
+      "lastVerified": "2026-11-02T20:56:20.458031+00:00",
       "availabilityMessage": "Newfoundland and Labrador source refresh verified.",
-      "generatedAt": "2026-11-01T17:16:44.679376+00:00",
-      "ageHours": 0.64,
-      "currentRecordCount": 4458,
-      "bundledFeatureCount": 4458,
+      "generatedAt": "2026-11-02T20:56:20.458031+00:00",
+      "ageHours": 0.7,
+      "currentRecordCount": 4447,
+      "bundledFeatureCount": 4447,
       "claimDelivery": "included",
       "claimOverviewCellCount": null,
-      "recordedHolderCount": 424,
-      "recordedHolderRecordCount": 4458,
+      "recordedHolderCount": 422,
+      "recordedHolderRecordCount": 4447,
       "holderReviewRequiredCount": 0,
       "holderSourceAudit": [
         {
           "recordType": "Mineral licence / map-staked claim",
           "governmentField": "CLIENT_NAME",
-          "normalizedRecords": 4684,
-          "recordsWithPublishedHolder": 4671,
+          "normalizedRecords": 4678,
+          "recordsWithPublishedHolder": 4665,
           "recordsWithSourceHolderIdentifier": 0,
           "reviewRequired": false
         }
       ],
-      "normalizedRecordCount": 4684,
+      "normalizedRecordCount": 4678,
       "lineage": [
         {
           "layer": "map_staked_claims",
-          "manifest": 4684,
-          "canonicalRaw": 4684
+          "manifest": 4678,
+          "canonicalRaw": 4678
         }
       ],
       "issues": []
@@ -208,19 +208,19 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:55:06.576184+00:00",
+      "sourceCheckedAt": "2026-11-02T21:38:31.755147+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:53:05.051697+00:00",
+      "lastVerified": "2026-11-02T21:36:47.158123+00:00",
       "availabilityMessage": "Yukon source refresh verified.",
-      "generatedAt": "2026-11-01T17:53:05.051697+00:00",
+      "generatedAt": "2026-11-02T21:36:47.158123+00:00",
       "ageHours": 0.03,
-      "currentRecordCount": 197921,
-      "bundledFeatureCount": 2167,
+      "currentRecordCount": 197335,
+      "bundledFeatureCount": 2143,
       "claimDelivery": "viewport-live",
       "claimOverviewCellCount": 71,
-      "recordedHolderCount": 1155,
-      "recordedHolderRecordCount": 197921,
+      "recordedHolderCount": 1150,
+      "recordedHolderRecordCount": 197335,
       "holderReviewRequiredCount": 0,
       "holderSourceAudit": [
         {
@@ -287,13 +287,13 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:47:37.751128+00:00",
+      "sourceCheckedAt": "2026-11-02T21:21:35.813145+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:19:58.685904+00:00",
+      "lastVerified": "2026-11-02T20:59:23.493641+00:00",
       "availabilityMessage": "Nunavut source refresh verified.",
-      "generatedAt": "2026-11-01T17:19:58.685904+00:00",
-      "ageHours": 0.59,
+      "generatedAt": "2026-11-02T20:59:23.493641+00:00",
+      "ageHours": 0.65,
       "currentRecordCount": 5022,
       "bundledFeatureCount": 554,
       "claimDelivery": "viewport-live",
@@ -353,26 +353,26 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:17:35.472902+00:00",
+      "sourceCheckedAt": "2026-11-02T20:57:01.453408+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:17:21.505038+00:00",
+      "lastVerified": "2026-11-02T20:56:48.697104+00:00",
       "availabilityMessage": "Northwest Territories source refresh verified.",
-      "generatedAt": "2026-11-01T17:17:21.505038+00:00",
-      "ageHours": 0.63,
-      "currentRecordCount": 2102,
-      "bundledFeatureCount": 2102,
+      "generatedAt": "2026-11-02T20:56:48.697104+00:00",
+      "ageHours": 0.7,
+      "currentRecordCount": 2100,
+      "bundledFeatureCount": 2100,
       "claimDelivery": "included",
       "claimOverviewCellCount": null,
       "recordedHolderCount": 115,
-      "recordedHolderRecordCount": 2098,
+      "recordedHolderRecordCount": 2096,
       "holderReviewRequiredCount": 4,
       "holderSourceAudit": [
         {
           "recordType": "Mineral claim",
           "governmentField": "OWNERS",
-          "normalizedRecords": 1114,
-          "recordsWithPublishedHolder": 1114,
+          "normalizedRecords": 1112,
+          "recordsWithPublishedHolder": 1112,
           "recordsWithSourceHolderIdentifier": 0,
           "reviewRequired": false
         },
@@ -417,12 +417,12 @@
           "reviewRequired": true
         }
       ],
-      "normalizedRecordCount": 2135,
+      "normalizedRecordCount": 2133,
       "lineage": [
         {
           "layer": "active_mineral_claims",
-          "manifest": 1114,
-          "canonicalRaw": 1114
+          "manifest": 1112,
+          "canonicalRaw": 1112
         },
         {
           "layer": "active_mineral_leases",
@@ -458,26 +458,26 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:51:46.464703+00:00",
+      "sourceCheckedAt": "2026-11-02T21:35:43.461221+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:47:56.530814+00:00",
+      "lastVerified": "2026-11-02T21:32:19.018309+00:00",
       "availabilityMessage": "Quebec source refresh verified.",
-      "generatedAt": "2026-11-01T17:47:56.530814+00:00",
-      "ageHours": 0.12,
-      "currentRecordCount": 209296,
+      "generatedAt": "2026-11-02T21:32:19.018309+00:00",
+      "ageHours": 0.1,
+      "currentRecordCount": 208122,
       "bundledFeatureCount": 505,
       "claimDelivery": "viewport-static",
       "claimOverviewCellCount": 200,
-      "recordedHolderCount": 1328,
-      "recordedHolderRecordCount": 209296,
+      "recordedHolderCount": 1327,
+      "recordedHolderRecordCount": 208122,
       "holderReviewRequiredCount": 0,
       "holderSourceAudit": [
         {
           "recordType": "Active mineral exploration title",
           "governmentField": "OWNERS",
-          "normalizedRecords": 208791,
-          "recordsWithPublishedHolder": 208791,
+          "normalizedRecords": 207617,
+          "recordsWithPublishedHolder": 207617,
           "recordsWithSourceHolderIdentifier": 0,
           "reviewRequired": false
         },
@@ -490,12 +490,12 @@
           "reviewRequired": false
         }
       ],
-      "normalizedRecordCount": 209296,
+      "normalizedRecordCount": 208122,
       "lineage": [
         {
           "layer": "active_mining_claims",
-          "manifest": 208791,
-          "canonicalRaw": 208791
+          "manifest": 207617,
+          "canonicalRaw": 207617
         },
         {
           "layer": "active_mining_leases",
@@ -511,13 +511,13 @@
       "status": "passed",
       "published": true,
       "sourceAvailability": "verified",
-      "sourceCheckedAt": "2026-11-01T17:52:59.940174+00:00",
+      "sourceCheckedAt": "2026-11-02T21:36:42.883986+00:00",
       "verificationMode": "source-refresh",
       "boundaryState": "verified",
-      "lastVerified": "2026-11-01T17:51:49.794298+00:00",
+      "lastVerified": "2026-11-02T21:35:46.009856+00:00",
       "availabilityMessage": "Saskatchewan source refresh verified.",
-      "generatedAt": "2026-11-01T17:51:49.794298+00:00",
-      "ageHours": 0.06,
+      "generatedAt": "2026-11-02T21:35:46.009856+00:00",
+      "ageHours": 0.05,
       "currentRecordCount": 7148,
       "bundledFeatureCount": 7148,
       "claimDelivery": "included",
@@ -529,8 +529,8 @@
         {
           "recordType": "Crown mineral disposition",
           "governmentField": "OWNERS",
-          "normalizedRecords": 7327,
-          "recordsWithPublishedHolder": 7327,
+          "normalizedRecords": 7325,
+          "recordsWithPublishedHolder": 7325,
           "recordsWithSourceHolderIdentifier": 0,
           "reviewRequired": false
         },
@@ -567,12 +567,12 @@
           "reviewRequired": true
         }
       ],
-      "normalizedRecordCount": 22399,
+      "normalizedRecordCount": 22397,
       "lineage": [
         {
           "layer": "mineral_dispositions",
-          "manifest": 7327,
-          "canonicalRaw": 7327
+          "manifest": 7325,
+          "canonicalRaw": 7325
         },
         {
           "layer": "assessment_underground",
@@ -600,22 +600,106 @@
     {
       "key": "ontario",
       "jurisdiction": "Ontario",
-      "status": "source-unavailable",
-      "published": false,
-      "sourceAvailability": "source-unavailable",
-      "sourceCheckedAt": "2026-11-01T17:47:56.300047+00:00",
-      "lastVerified": "2026-10-31T16:47:33.756479+00:00",
-      "availabilityMessage": "Source temporarily unavailable—last verified October 31, 2026.",
-      "generatedAt": null,
-      "ageHours": null,
-      "currentRecordCount": 0,
-      "lastVerifiedRecordCount": 398941,
-      "bundledFeatureCount": 0,
-      "claimDelivery": "unpublished",
-      "claimOverviewCellCount": null,
-      "recordedHolderCount": null,
-      "normalizedRecordCount": 0,
-      "lineage": [],
+      "status": "passed",
+      "published": true,
+      "sourceAvailability": "verified",
+      "sourceCheckedAt": "2026-11-02T21:32:13.946751+00:00",
+      "verificationMode": "source-refresh",
+      "boundaryState": "verified",
+      "lastVerified": "2026-11-02T21:21:36.587875+00:00",
+      "availabilityMessage": "Ontario source refresh verified.",
+      "generatedAt": "2026-11-02T21:21:36.587875+00:00",
+      "ageHours": 0.28,
+      "currentRecordCount": 398814,
+      "bundledFeatureCount": 675,
+      "claimDelivery": "viewport-live",
+      "claimOverviewCellCount": 116,
+      "recordedHolderCount": 1366,
+      "recordedHolderRecordCount": 398139,
+      "holderReviewRequiredCount": 675,
+      "holderSourceAudit": [
+        {
+          "recordType": "Mining claim",
+          "governmentField": "HOLDER",
+          "normalizedRecords": 410292,
+          "recordsWithPublishedHolder": 410292,
+          "recordsWithSourceHolderIdentifier": 0,
+          "reviewRequired": false
+        },
+        {
+          "recordType": "Mining lease",
+          "governmentField": null,
+          "normalizedRecords": 3045,
+          "recordsWithPublishedHolder": 0,
+          "recordsWithSourceHolderIdentifier": 0,
+          "reviewRequired": true
+        },
+        {
+          "recordType": "Mining licence of occupation",
+          "governmentField": null,
+          "normalizedRecords": 950,
+          "recordsWithPublishedHolder": 0,
+          "recordsWithSourceHolderIdentifier": 0,
+          "reviewRequired": true
+        },
+        {
+          "recordType": "Exploratory licence of occupation",
+          "governmentField": null,
+          "normalizedRecords": 1,
+          "recordsWithPublishedHolder": 0,
+          "recordsWithSourceHolderIdentifier": 0,
+          "reviewRequired": true
+        },
+        {
+          "recordType": "Active early exploration instrument",
+          "governmentField": "TENURE_HOLDER",
+          "normalizedRecords": 632,
+          "recordsWithPublishedHolder": 0,
+          "recordsWithSourceHolderIdentifier": 632,
+          "reviewRequired": true
+        },
+        {
+          "recordType": "Producing mine",
+          "governmentField": null,
+          "normalizedRecords": 43,
+          "recordsWithPublishedHolder": 0,
+          "recordsWithSourceHolderIdentifier": 0,
+          "reviewRequired": true
+        }
+      ],
+      "normalizedRecordCount": 414963,
+      "lineage": [
+        {
+          "layer": "mining_claims",
+          "manifest": 410292,
+          "canonicalRaw": 410292
+        },
+        {
+          "layer": "mining_leases",
+          "manifest": 3045,
+          "canonicalRaw": 3045
+        },
+        {
+          "layer": "mining_licences_of_occupation",
+          "manifest": 950,
+          "canonicalRaw": 950
+        },
+        {
+          "layer": "exploratory_licences_of_occupation",
+          "manifest": 1,
+          "canonicalRaw": 1
+        },
+        {
+          "layer": "active_early_exploration",
+          "manifest": 632,
+          "canonicalRaw": 632
+        },
+        {
+          "layer": "producing_mines",
+          "manifest": 43,
+          "canonicalRaw": 43
+        }
+      ],
       "issues": []
     }
   ],
