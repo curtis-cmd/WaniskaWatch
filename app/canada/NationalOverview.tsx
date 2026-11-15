@@ -6,6 +6,7 @@ import type { FeatureCollection } from "geojson";
 import { kinds, type Kind, type RecordFeature } from './map-data';
 import { mountActivityLayers } from './activity-map';
 import RecordDetails from './RecordDetails';
+import {publicationPolicy} from '../publication-permission.mjs';
 
 type Overview = {
   metadata: { claimCount: number; oldestVerified: string | null; newestVerified: string | null; auditedAt: string; note: string };
@@ -249,7 +250,10 @@ export default function NationalOverview({ data }: { data: Overview }) {
     </section>
     <section id="national-sources" className="national-sources" aria-labelledby="national-sources-title">
       <div><span className="watch-eyebrow">FROM OVERVIEW TO INDIVIDUAL RECORDS</span><h2 id="national-sources-title">Choose a province or territory.</h2><p>Circles summarize claim locations from the published snapshots; their size is not land area. Open a jurisdiction to explore records, holders and available claim boundaries.</p></div>
-      <div className="national-jurisdictions">{data.jurisdictions.map(j => <article key={j.key}><a href={path(`/?province=${encodeURIComponent(j.key)}#territory-watch`)}><strong>{j.name} <span aria-hidden="true">↗</span></strong><b>{number(j.count)} claims</b></a><span>Verified as of {date(j.verifiedAt)}</span><a className="national-source-link" href={j.sourceUrl} target="_blank" rel="noopener noreferrer">Government source ↗</a></article>)}</div>
+      <div className="national-jurisdictions">{data.jurisdictions.map(j => {
+        const source=publicationPolicy.jurisdictions[j.key as keyof typeof publicationPolicy.jurisdictions];
+        return <article key={j.key}><a href={path(`/?province=${encodeURIComponent(j.key)}#territory-watch`)}><strong>{j.name} <span aria-hidden="true">↗</span></strong><b>{number(j.count)} claims</b></a><span>Verified as of {date(j.verifiedAt)}</span><a className="national-source-link" href={j.sourceUrl} target="_blank" rel="noopener noreferrer">Government source ↗</a>{source && 'attribution' in source && <p>{source.attribution} <a href={source.licenceUrl} target="_blank" rel="noopener noreferrer">Source licence ↗</a></p>}</article>;
+      })}</div>
       <aside className="national-unavailable"><h3>Not represented in this overview</h3>{data.unavailable.map(j => <p key={j.name}><b>{j.name}:</b> {j.reason}.</p>)}</aside>
       <p className="national-information">Public information only. A claim is not an operating mine, approval, consultation or consent. This overview does not determine Indigenous rights, title or territorial boundaries. Records are verified as of their displayed dates, not guaranteed real-time or individually confirmed against every registry entry. Verify information with the responsible authority before acting. <a href={path("/#legal-notice")}>Read the full information notice.</a></p>
       <a href={path("/data/canada-claims-overview.json")} target="_blank" rel="noopener noreferrer">View the national overview data and source dates ↗</a>

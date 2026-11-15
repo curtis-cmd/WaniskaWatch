@@ -15,6 +15,7 @@ from typing import Any
 from config import PROVINCES
 from refresh_baseline import verify_retained
 from publication_policy import eligible, holder_fields
+from publication_scope import enabled
 
 INACTIVE = re.compile(
     r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
@@ -70,6 +71,16 @@ def main() -> None:
             continue
         dataset_path = public_root / f"{key}-mining.json"
         source_status = source_statuses.get(key) or {}
+        if not enabled(key, root):
+            if dataset_path.exists():
+                raise RuntimeError(f"Excluded jurisdiction still has a public mining file: {key}")
+            audits.append({"key":key, "jurisdiction":key.replace('-', ' ').title(),
+                "status":"publication-review", "published":False,
+                "sourceAvailability":source_status.get('state'),
+                "lastVerified":source_status.get('lastVerified'), "generatedAt":None,
+                "currentRecordCount":0, "bundledFeatureCount":0, "claimDelivery":"unpublished",
+                "availabilityMessage":source_status.get('message'), "issues":[]})
+            continue
         source_unavailable = source_status.get("state") == "source-unavailable"
         retained_boundary = source_status.get("boundaryState") == "source-unavailable" and not source_unavailable
         if not dataset_path.exists():

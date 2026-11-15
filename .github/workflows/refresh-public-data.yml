@@ -66,6 +66,12 @@ jobs:
             saskatchewan \
             yukon
           do
+            if ! python scripts/canada-mining/publication_scope.py "$jurisdiction"; then
+              echo "Skipping $jurisdiction: outside current publication scope."
+              python scripts/canada-mining/publication_scope.py "$jurisdiction" --withhold
+              python scripts/canada-mining/unpublish_jurisdiction.py "$jurisdiction"
+              continue
+            fi
             echo "Refreshing $jurisdiction"
             if [ "$jurisdiction" = "manitoba" ]; then
               refresh_command=(bash scripts/manitoba-mining/refresh.sh)

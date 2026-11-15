@@ -48,3 +48,24 @@ The current public application contains dated mining-source snapshots from
 multiple Canadian jurisdictions, government boundary polygons used as a geographic
 index, and available public business contacts. Coverage and completeness vary.
 It does not use the Waniska Connect application, database, sessions, or user records.
+
+## Publication scope and restoration
+
+`config/publication-sources.json` is a separate, fail-closed publication gate.
+A successful source refresh is necessary but does not itself authorize reuse.
+Builds strip excluded jurisdiction assets and regenerate national counts. Runtime
+data and API guards also enforce this scope; scheduled refreshes cannot silently
+restore an excluded jurisdiction. Original snapshots remain recoverable from Git.
+
+As reviewed November 15, 2026, the enabled mining sources are Manitoba, British
+Columbia, Yukon and Nunavut. Other jurisdictions have official-source links and
+remain withheld pending review. This operational scope is not legal clearance.
+Personal information, third-party rights, attribution and dataset-specific terms
+remain separate requirements even under an open-government licence.
+
+Before enabling a source, retain dated evidence of the applicable licence or
+permission privately, resolve material publication questions, record attribution
+in the configuration, run a current source refresh and audit, and test all delivery
+paths. Never change a source verification date merely because code was deployed.
+Describe records as verified as of their displayed date, not real-time or
+individually registry-confirmed unless the evidence supports that narrower claim.

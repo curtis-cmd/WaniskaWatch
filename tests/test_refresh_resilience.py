@@ -18,6 +18,11 @@ class RetainedSnapshotTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.public = self.root / "public/data"
         self.public.mkdir(parents=True)
+        (self.root/'config').mkdir()
+        (self.root/'config/publication-sources.json').write_text(json.dumps({'jurisdictions': {'alberta': {
+            'enabled': True, 'licenceUrl':'https://example.test/licence',
+            'evidenceUrl':'https://example.test/evidence', 'attribution':'Synthetic test fixture'
+        }}}))
         self.date = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         self.dataset = {"metadata": {"province": "Alberta", "generatedAt": self.date, "currentOnly": True, "featureCount": 1, "databaseRecordCount": 1, "recordedHolderRecordCount": 1, "holderReviewRequiredCount": 0}, "features": [{"id": "test", "properties": {"status": "Active", "holder": "Example", "holderAvailability": "published"}}]}
         self.write("alberta-mining.json", self.dataset)

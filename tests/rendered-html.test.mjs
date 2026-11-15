@@ -70,7 +70,7 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /Report an error or request a correction/i);
   assert.match(html, /must be independently verified and must not be relied upon/i);
   assert.match(html, /A published record has been checked against its cited public government source/i);
-  assert.match(html, /temporarily removes a jurisdiction when its government source cannot be verified/i);
+  assert.match(html, /publication conditions/i);
   assert.match(html, /INFORMATION NOTICE/i);
   assert.match(html, /Public and third-party information/i);
   assert.doesNotMatch(html, /Limitation of liability/i);
@@ -224,7 +224,7 @@ test("publishes only jurisdictions verified during the latest successful refresh
     .filter(([, status]) => status.state === "verified")
     .map(([jurisdiction]) => jurisdiction);
   const unavailable = Object.entries(sourceStatuses.jurisdictions)
-    .filter(([, status]) => status.state === "source-unavailable")
+    .filter(([, status]) => status.state !== "verified")
     .map(([jurisdiction]) => jurisdiction);
 
   for (const jurisdiction of verified) {
@@ -252,7 +252,7 @@ test("publishes only jurisdictions verified during the latest successful refresh
     dataAudit.metadata.totalCurrentRecordCount,
     dataAudit.liveJurisdictions.reduce((total, item) => total + item.currentRecordCount, 0),
   );
-  assert.equal(dataAudit.liveJurisdictions.every(item => ["passed", "source-unavailable"].includes(item.status)), true);
+  assert.equal(dataAudit.liveJurisdictions.every(item => ["passed", "source-unavailable", "publication-review"].includes(item.status)), true);
   assert.ok(verified.length + unavailable.length > 0);
 });
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isCurrentActivity, normalizeHolder } from './current-record.mjs';
+import {publicationPolicy, publicationEnabled} from './publication-permission.mjs';
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Map as LeafletMap, PathOptions } from "leaflet";
 
@@ -112,7 +113,7 @@ type ContactDirectory = {
   contacts: Array<ContactInfo & { match: string }>;
 };
 type JurisdictionSourceStatus = {
-  state: "verified" | "source-unavailable";
+  state: "verified" | "source-unavailable" | "publication-review";
   checkedAt: string;
   lastVerified: string;
   message: string;
@@ -1375,6 +1376,7 @@ export default function MiningPortal() {
           {territoryNames.map(item => <option key={item} value={item}>{territoryLabel(item)}</option>)}
         </select></label>
       </div>
+      <p className="watch-boundary-note">Watch currently republishes selected jurisdictions only. Areas missing from the selector are not a finding of no mining activity. Saskatchewan records are temporarily withheld pending publication review; <a href={publicationPolicy.jurisdictions.saskatchewan.officialUrl} target="_blank" rel="noreferrer">consult Saskatchewan’s official MARS registry ↗</a>. <a href="#sources">View other official sources</a>.</p>
       <div className="territory-watch-heading">
         <div>
           <span className="watch-eyebrow">TERRITORY WATCH · {provinceConfig.name.toUpperCase()}</span>
@@ -1611,6 +1613,11 @@ export default function MiningPortal() {
         <span className="watch-eyebrow">SOURCE REGISTER</span>
         <h2>See where the information comes from.</h2>
         <p>Waniskâ Watch keeps public records, geographic intersections and organization research separate so users can understand what is verified and what is inferred.</p>
+        <p>Coverage is limited to selected sources while publication conditions are reviewed. Missing coverage does not mean there are no claims, activities, rights or interests in that area.</p>
+        <details><summary>Looking for a province or territory not currently shown?</summary>
+          <p>Use the official sources below. These records are not currently republished in Watch; no finding about title validity or a company is implied.</p>
+          <ul>{Object.entries(publicationPolicy.jurisdictions).filter(([key]) => !publicationEnabled(key)).map(([key, source]) => <li key={key}><a href={source.officialUrl} target="_blank" rel="noreferrer">{key.split('-').map(word => word[0].toUpperCase()+word.slice(1)).join(' ')} — official source ↗</a></li>)}</ul>
+        </details>
       </div>
       <div className="watch-source-register">
         <article>
@@ -1618,12 +1625,14 @@ export default function MiningPortal() {
           <h3>{miningDataset?.metadata.source || "Government of Manitoba iMaQs"}</h3>
           <dl><div><dt>Retrieved</dt><dd>{updated}</dd></div><div><dt>Coverage</dt><dd>{(miningDataset?.metadata.databaseRecordCount || activities.length).toLocaleString("en-CA")} records</dd></div><div><dt>Status</dt><dd>Government source</dd></div></dl>
           <a href={miningDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open mining source ↗</a>
+          {(() => {const source = publicationPolicy.jurisdictions[province]; return source && 'attribution' in source ? <p>{source.attribution} <a href={source.licenceUrl} target="_blank" rel="noreferrer">Read source licence ↗</a></p> : null;})()}
         </article>
         <article>
           <span>TERRITORIAL CONTEXT</span>
           <h3>{treatyDataset?.metadata.source || "Manitoba Land Initiative — Treaty Boundary"}</h3>
           <dl><div><dt>Retrieved</dt><dd>{boundaryUpdated}</dd></div><div><dt>Coverage</dt><dd>{treatyDataset?.features.length || 0} published treaty/agreement areas</dd></div><div><dt>Status</dt><dd>Geographic index</dd></div></dl>
           <a href={treatyDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open boundary source ↗</a>
+          {province === 'manitoba' && <p>Boundary information supplied by the Manitoba Land Initiative, Government of Manitoba. <a href="https://mli.gov.mb.ca/about_us/Terms_and_Conditions_of_Use.pdf" target="_blank" rel="noreferrer">Boundary terms of use ↗</a>. Published boundaries are geographic context, not a determination of rights.</p>}
         </article>
         <article>
           <span>DATA AUDIT</span>
@@ -1640,7 +1649,7 @@ export default function MiningPortal() {
         <h2 id="legal-title">Public and third-party information</h2>
       </div>
       <div className="watch-legal-notice">
-        <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Verification is date-specific: records are not guaranteed real-time and have not necessarily been individually confirmed against every registry entry. Waniskâ Watch temporarily removes a jurisdiction when its government source cannot be verified and restores it only after a successful source refresh and audit.</p>
+        <p><strong>Verification standard.</strong> A published record has been checked against its cited public government source as of the “Last verified” date shown. Verification is date-specific: records are not guaranteed real-time and have not necessarily been individually confirmed against every registry entry. A passing source refresh does not itself authorize republication. Coverage may be withheld pending source verification or publication review; restoration requires the applicable checks.</p>
         <p>Waniskâ Watch compiles and continually updates its database using publicly available government records and other third-party sources. Despite reasonable efforts to keep the database current, records, maps, boundaries, contacts and links may from time to time be incomplete, delayed, inaccurate, unavailable or out of date. Geographic matches and coordinates are informational approximations and may not show every overlap, interest, right or obligation.</p>
         <p>Records with unresolved expiry conflicts or insufficient current-status evidence are temporarily excluded from public listings and maps. Exclusion does not establish that a title is legally expired or invalid; renewed records may return after source verification.</p>
         <p>Company and individual names are reproduced as recorded in cited public sources for identification and research. Inclusion does not imply affiliation, endorsement, wrongdoing, consultation, consent or operational activity beyond the status shown. Records may change and must be verified with the responsible authority.</p>

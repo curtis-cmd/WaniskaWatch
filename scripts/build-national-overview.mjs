@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import {publicationEnabled} from '../app/publication-permission.mjs';
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = async name => JSON.parse(await readFile(resolve(root, "public/data", name), "utf8"));
@@ -39,8 +40,8 @@ export async function buildNationalOverview() {
   }
   for (const jurisdiction of audit.liveJurisdictions) {
     const key = jurisdiction.key;
-    if (!jurisdiction.published || jurisdiction.status !== "passed" || statuses.jurisdictions[key]?.state !== "verified") {
-      unavailable.push({ name: jurisdiction.jurisdiction, reason: "No passing published snapshot available" });
+    if (!publicationEnabled(key) || !jurisdiction.published || jurisdiction.status !== "passed" || statuses.jurisdictions[key]?.state !== "verified") {
+      unavailable.push({ name: jurisdiction.jurisdiction, reason: "Coverage withheld pending source verification or publication review; consult the official registry" });
       continue;
     }
     const dataset = await read(`${key}-mining.json`);

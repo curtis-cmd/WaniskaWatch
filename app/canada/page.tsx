@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import NationalOverview from "./NationalOverview";
 import overview from "../../public/data/canada-claims-overview.json";
 import {freshVerification} from '../publication-freshness.mjs';
+import {publicationEnabled} from '../publication-permission.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default function CanadaPage() {
-  const jurisdictions = overview.jurisdictions.filter(j => freshVerification(j.verifiedAt));
+  const jurisdictions = overview.jurisdictions.filter(j => publicationEnabled(j.key) && freshVerification(j.verifiedAt));
   const included = new Set(jurisdictions.map(j => j.key));
   const dates = jurisdictions.map(j => j.verifiedAt).sort();
   const data = {...overview, jurisdictions,

@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import statusDirectory from "../../../public/data/jurisdiction-status.json";
 import { isCurrentActivity } from "../../current-record.mjs";
+import {publicationEnabled} from '../../publication-permission.mjs';
 
 type JurisdictionKey = keyof typeof statusDirectory.jurisdictions;
 
 export function unavailableJurisdictionResponse(jurisdiction: JurisdictionKey) {
   const status = statusDirectory.jurisdictions[jurisdiction];
   const age = Date.now() - Date.parse(status?.lastVerified || '');
-  if (status?.state === "verified" && age >= 0 && age <= 48 * 3600000) return null;
+  if (publicationEnabled(jurisdiction) && status?.state === "verified" && age >= 0 && age <= 48 * 3600000) return null;
   return NextResponse.json(
     {
-      error: "This jurisdiction is temporarily unpublished because its government source could not be verified during the latest refresh.",
+      error: "This jurisdiction is temporarily unpublished pending source verification or publication review. Consult the official registry.",
       lastVerified: status?.lastVerified || null,
     },
     { status: 503 },
