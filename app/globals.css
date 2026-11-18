@@ -635,6 +635,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .watch-trust-points p { margin: 0; color: var(--watch-muted); font-size: 14px; line-height: 1.65; }
 .watch-boundary-note { margin-top: 20px; display: grid; grid-template-columns: 220px 1fr; gap: 22px 40px; background: #eee7d8; border-left: 5px solid var(--watch-gold); padding: 24px; }
 .watch-boundary-note strong { font: 500 21px Georgia, serif; }
+.watch-source-scope { margin: 14px 0; font-size: 14px; line-height: 1.6; color: #514d42; }
+.watch-source-scope a { text-decoration: underline; text-underline-offset: 3px; }
+.watch-publication-notice { padding: 14px 18px; border-left: 4px solid var(--watch-gold); background: #eee7d8; }
+.watch-publication-notice strong { display: block; margin-bottom: 4px; }
 .watch-boundary-note p { margin: 0; color: #625a49; font-size: 14px; line-height: 1.65; }
 .watch-boundary-note span { grid-column: 2; color: #766a53; font-size: 12px; line-height: 1.5; }
 
