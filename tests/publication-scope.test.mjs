@@ -5,10 +5,24 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {publicationEnabled, publicationStatus} from '../app/publication-permission.mjs';
 import {applyPublicationScope} from '../scripts/apply-publication-scope.mjs';
+import {publishableHolder, validateSaskatchewan, policy} from '../scripts/saskatchewan-publication.mjs';
+
+test('Saskatchewan permits exact reviewed corporate identities, never suffix guesses or mixed holders',()=>{
+  for (const value of ['Cameco Corporation: 100.000%', '  CAMECO   CORPORATION  ', 'CAMECO CORPORATION: 50%; ISOENERGY LTD.: 50.000%']) assert.equal(publishableHolder(value),value);
+  for (const value of [null,'','Example Ltd.','Example Person: 100%','CAMECO CORPORATION: 50%; Example Person: 50%','CAMECO CORPORATION; ','CAMECO CORPORATION: invalid','1234']) assert.equal(publishableHolder(value),null);
+  const p={kindLabel:'Crown mineral disposition',holder:null,holderAvailability:'withheld-publication-review',holderReviewRequired:true};
+  const data={metadata:{holderPublicationPolicy:policy.version},features:[{properties:p}]};
+  assert.doesNotThrow(()=>validateSaskatchewan(data));
+  for (const field of ['holder','holderEvidence','holderEvidenceUrl','holderVerifiedAt','holderSourceIdentifier']) {
+    assert.throws(()=>validateSaskatchewan({...data,features:[{properties:{...p,[field]:'unreviewed'}}]}));
+  }
+  assert.throws(()=>validateSaskatchewan({...data,metadata:{}}));
+});
 
 test('publication permission is independent of successful refresh and defaults closed',()=>{
   assert.equal(publicationEnabled('manitoba'),true);
-  for (const key of ['saskatchewan','quebec','ontario','unknown','__proto__']) {
+  assert.equal(publicationEnabled('saskatchewan'),true);
+  for (const key of ['quebec','ontario','unknown','__proto__']) {
     assert.equal(publicationEnabled(key),false);
     const status={state:'verified',lastVerified:'2026-11-15T12:00:00Z'};
     assert.equal(publicationStatus(key,status).state,'publication-review');
@@ -48,4 +62,12 @@ test('permission gates cover APIs, direct assets, overview and scheduled refresh
     assert.match(await readFile(new URL(file,import.meta.url),'utf8'),/publicationEnabled/);
   }
   assert.match(await readFile(new URL('../.github/workflows/refresh-public-data.yml',import.meta.url),'utf8'),/publication_scope.py/);
+});
+
+test('record-specific provenance survives list and deep-link normalization',async()=>{
+  const portal=await readFile(new URL('../app/MiningPortal.tsx',import.meta.url),'utf8');
+  for (const item of ['feature','linked']) {
+    assert.match(portal,new RegExp(`sourceUrl: ${item}\\.properties\\.sourceUrl \\|\\|`));
+    assert.match(portal,new RegExp(`sourceName: ${item}\\.properties\\.sourceName \\|\\|`));
+  }
 });

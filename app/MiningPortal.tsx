@@ -9,7 +9,7 @@ import type { GeoJSON as LeafletGeoJSON, LatLngBounds, Layer as LeafletLayer, Ma
 type Sector = "minerals";
 type ActivityKind = "claim" | "exploration" | "lease" | "mine";
 type DataStatus = "loading" | "ready" | "error";
-type HolderAvailability = "published" | "published-field-empty" | "government-gis-omits-holder" | "registry-checked-unavailable" | "identifier-only";
+type HolderAvailability = "published" | "published-field-empty" | "government-gis-omits-holder" | "registry-checked-unavailable" | "identifier-only" | "withheld-publication-review";
 type ProvinceKey =
   | "manitoba"
   | "saskatchewan"
@@ -272,6 +272,7 @@ function recordedPartyLabel(kind: ActivityKind) {
 }
 
 function holderUnavailableText(properties: ActivityProperties) {
+  if (properties.holderAvailability === "withheld-publication-review") return "Holder name withheld pending publication review — consult the official registry";
   if (properties.holderSourceIdentifier) return "Name unresolved in current source";
   if (properties.holder) return properties.holder;
   if (properties.holderAvailability === "government-gis-omits-holder") {
@@ -600,8 +601,8 @@ export default function MiningPortal() {
               ...linked.properties,
               sector: "minerals",
               sectorLabel: "Minerals",
-              sourceUrl: mining.metadata.sourceUrl,
-              sourceName: mining.metadata.source,
+              sourceUrl: linked.properties.sourceUrl || mining.metadata.sourceUrl,
+              sourceName: linked.properties.sourceName || mining.metadata.source,
               lastUpdated: linked.properties.lastUpdated || mining.metadata.generatedAt,
             }),
           });
@@ -627,8 +628,8 @@ export default function MiningPortal() {
           ...feature.properties,
           sector: "minerals" as Sector,
           sectorLabel: "Minerals",
-          sourceUrl: miningDataset?.metadata.sourceUrl,
-          sourceName: miningDataset?.metadata.source,
+          sourceUrl: feature.properties.sourceUrl || miningDataset?.metadata.sourceUrl,
+          sourceName: feature.properties.sourceName || miningDataset?.metadata.source,
           lastUpdated: feature.properties.lastUpdated || miningDataset?.metadata.generatedAt,
         }),
       }));
@@ -1307,6 +1308,8 @@ export default function MiningPortal() {
   const loadedMapRecords = activities.length;
   const generatedAt = miningDataset?.metadata.generatedAt;
   const jurisdictionSourceStatus = jurisdictionStatuses?.jurisdictions[province];
+  // No promotional content before the requested province has resolved, including SSR.
+  const showConsultingPromotions = Boolean(jurisdictionStatuses) && province !== "saskatchewan";
   const publishedProvinceKeys = jurisdictionStatuses
     ? (Object.keys(provinces) as ProvinceKey[]).filter(key => (
       jurisdictionStatuses.jurisdictions[key]?.state === "verified"
@@ -1339,7 +1342,7 @@ export default function MiningPortal() {
         <a href="#trust">How to use the data</a>
         <a href="#sources">Sources</a>
       </nav>
-      <button className="watch-support-button" type="button" onClick={() => supportDialog.current?.showModal()}>Get support</button>
+      {showConsultingPromotions && <button className="watch-support-button" type="button" onClick={() => supportDialog.current?.showModal()}>Get support</button>}
     </header>
 
     <section className="watch-hero" aria-label="About Territory Watch">
@@ -1376,7 +1379,8 @@ export default function MiningPortal() {
           {territoryNames.map(item => <option key={item} value={item}>{territoryLabel(item)}</option>)}
         </select></label>
       </div>
-      <p className="watch-boundary-note">Watch currently republishes selected jurisdictions only. Areas missing from the selector are not a finding of no mining activity. Saskatchewan records are temporarily withheld pending publication review; <a href={publicationPolicy.jurisdictions.saskatchewan.officialUrl} target="_blank" rel="noreferrer">consult Saskatchewan’s official MARS registry ↗</a>. <a href="#sources">View other official sources</a>.</p>
+      <p className="watch-boundary-note">Watch currently republishes selected jurisdictions only. Areas missing from the selector are not a finding of no mining activity. <a href="#sources">View official sources and coverage</a>.</p>
+      {province === "saskatchewan" && <p className="watch-boundary-note"><strong>Saskatchewan · Unofficial, noncommercial community information.</strong> © 2026, Government of Saskatchewan. Mineral dispositions only; separate mine-location coverage is not included. Holder names without reviewed corporate-identity evidence are withheld, including mixed ownership entries. This does not mean a holder is an individual or that government records omit their name. <a href={publicationPolicy.jurisdictions.saskatchewan.licenceUrl} target="_blank" rel="noreferrer">Source terms ↗</a> · <a href={publicationPolicy.jurisdictions.saskatchewan.officialUrl} target="_blank" rel="noreferrer">Verify with MARS ↗</a></p>}
       <div className="territory-watch-heading">
         <div>
           <span className="watch-eyebrow">TERRITORY WATCH · {provinceConfig.name.toUpperCase()}</span>
@@ -1544,7 +1548,7 @@ export default function MiningPortal() {
               <div><dt>Area</dt><dd>{selected.properties.areaHa == null ? "Not published" : `${fmt(selected.properties.areaHa)} ha`}</dd></div>
               <div><dt>Commodity</dt><dd>{selected.properties.commodity || "Not published"}<small>{selected.properties.commodity ? "Source verified" : "Public source incomplete"}</small></dd></div>
               <div><dt>Issue date</dt><dd>{formatDate(selected.properties.issueDate)}</dd></div>
-              <div><dt>Expiry date</dt><dd>{formatDate(selected.properties.expiryDate)}</dd></div>
+              <div><dt>{province === "saskatchewan" ? "Good-standing date" : "Expiry date"}</dt><dd>{formatDate(selected.properties.expiryDate)}</dd></div>
               <div><dt>Published coordinates</dt><dd>{selected.properties.latitude.toFixed(4)}, {selected.properties.longitude.toFixed(4)}<small>{selected.properties.locationAccuracy || "Feature geometry; field conditions not verified"}</small></dd></div>
               <div><dt>Official source</dt><dd>{selected.properties.sourceName || miningDataset?.metadata.source || "Government public record"}</dd></div>
               <div><dt>Last verified</dt><dd>{selectedLastVerified}<small>Checked against the cited public government source</small></dd></div>
@@ -1555,7 +1559,7 @@ export default function MiningPortal() {
               <span>Verification is date-specific; the record is not guaranteed real-time and has not necessarily been individually confirmed against every registry entry. This record reproduces publicly available information for identification and research only. Government information may change, be delayed, incomplete or inaccurate. Verify it directly with the responsible authority before acting and do not rely on Waniskâ Watch for legal, regulatory, consultation, investment or land-use decisions. To the extent permitted by law, Waniskâ Services is not responsible for decisions, losses or damages arising from reliance on this record.</span>
             </aside>
 
-            <section className="watch-public-contact">
+            {province !== "saskatchewan" && <section className="watch-public-contact">
               <span>PUBLIC PROPONENT CONTACT</span>
               {publishedContact ? <>
                 <strong>{publishedContact.name}</strong>
@@ -1566,7 +1570,7 @@ export default function MiningPortal() {
                 <strong>No verified public business contact is available for this record.</strong>
                 <small>Waniskâ Watch does not publish private personal contact information. Use the government source or an authorized registry for outreach.</small>
               </>}
-            </section>
+            </section>}
 
             <div className="watch-record-actions">
               <a href={selected.properties.sourceUrl || miningDataset?.metadata.sourceUrl} target="_blank" rel="noreferrer">Open government source ↗</a>
@@ -1576,7 +1580,7 @@ export default function MiningPortal() {
               className="watch-correction-link"
               href={`mailto:info@waniskaservices.ca?subject=${encodeURIComponent(`Waniskâ Watch correction request — ${selected.properties.id}`)}&body=${encodeURIComponent(`Please review the following Waniskâ Watch record:\n\nRecord ID: ${selected.properties.id}\nProvince or territory: ${provinceConfig.name}\nRecord: ${selected.properties.name || selected.properties.id}\nOfficial source: ${selected.properties.sourceUrl || miningDataset?.metadata.sourceUrl || "Not published"}\n\nCorrection requested:\n`)}`}
             >Report an error or request a correction</a>
-            <button className="watch-context-support" type="button" onClick={() => supportDialog.current?.showModal()}>Need help interpreting this record?</button>
+            {showConsultingPromotions && <button className="watch-context-support" type="button" onClick={() => supportDialog.current?.showModal()}>Need help interpreting this record?</button>}
             <p className="watch-record-limit"><strong>Claims and licences are not evidence of consultation or consent.</strong> Verify current status with the responsible government and the relevant Nation, community, lands office or consultation office.</p>
           </article>}
         </div>
@@ -1658,21 +1662,21 @@ export default function MiningPortal() {
       </div>
     </section>
 
-    <section className="watch-services-band">
+    {showConsultingPromotions && <section className="watch-services-band">
       <div><span>COMMUNITY SUPPORT</span><h2>Need a deeper project or territory briefing?</h2><p>Waniskâ Services can support research, project review, consultation readiness, strategic planning and community briefings.</p></div>
       <button type="button" onClick={() => supportDialog.current?.showModal()}>Talk with Waniskâ Services</button>
-    </section>
+    </section>}
 
     <footer className="watch-footer">
       <div><a href="#top" aria-label="Waniskâ Watch home"><WatchLogo variant="white" /></a><p>See the activity. Know the territory.</p></div>
-      <a className="watch-services-brand" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
+      {showConsultingPromotions ? <a className="watch-services-brand" href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">
         <span>A free community resource from Waniskâ Services.</span>
         <img src={appPath("/waniska-services-logo.png")} alt="" />
-      </a>
+      </a> : <div className="watch-services-brand"><span>A free community resource from Waniskâ Services.</span><img src={appPath("/waniska-services-logo.png")} alt="" /></div>}
       <p>Government data · Independent presentation<br />No account required · <a href="#legal-notice">Information notice</a></p>
     </footer>
 
-    <dialog className="watch-support-dialog" ref={supportDialog} aria-labelledby="support-title">
+    {showConsultingPromotions && <dialog className="watch-support-dialog" ref={supportDialog} aria-labelledby="support-title">
       <form method="dialog"><button type="submit" aria-label="Close support information">×</button></form>
       <span className="watch-eyebrow">WANISKÂ SERVICES</span>
       <h2 id="support-title">Support for the work behind the map.</h2>
@@ -1689,6 +1693,6 @@ export default function MiningPortal() {
         <a href="https://waniskaservices.ca/" target="_blank" rel="noreferrer">Visit Waniskâ Services ↗</a>
       </div>
       <small>Do not include confidential cultural, land-use or personal information in an initial inquiry.</small>
-    </dialog>
+    </dialog>}
   </main>;
 }

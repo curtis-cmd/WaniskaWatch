@@ -30,7 +30,15 @@
       "evidenceUrl": "https://open.canada.ca/data/api/action/package_show?id=2e6f97df-eeae-462b-902d-4453a1c1034b",
       "attribution": "Contains information licensed under the Open Government Licence – Canada."
     },
-    "saskatchewan": {"enabled": false, "officialUrl": "https://www.saskatchewan.ca/business/agriculture-natural-resources-and-industry/mineral-exploration-and-mining/mineral-tenure/mineral-administration-registry-saskatchewan-mars"},
+    "saskatchewan": {
+      "enabled": true,
+      "reviewedAt": "2026-11-18",
+      "officialUrl": "https://www.saskatchewan.ca/business/agriculture-natural-resources-and-industry/mineral-exploration-and-mining/mineral-tenure/mineral-administration-registry-saskatchewan-mars",
+      "licenceUrl": "https://gisappl.saskatchewan.ca/WebDocs/Geo_Atlas/MetaData/Mineral_Disposition.html",
+      "evidenceUrl": "https://gisappl.saskatchewan.ca/WebDocs/Geo_Atlas/MetaData/Mineral_Disposition.html",
+      "attribution": "© 2026, Government of Saskatchewan. Unofficial mineral-disposition reproduction for noncommercial community information. Holder names without reviewed corporate-identity evidence are withheld; this does not imply that the government omitted them. Separate mine-location coverage is not included.",
+      "conditions": "Owner-stated noncommercial use, no consulting promotions in Saskatchewan or national views, reviewed corporate holders only, source attribution and date-specific verification. Not legal clearance or evidence of government permission for commercial use."
+    },
     "ontario": {"enabled": false, "officialUrl": "https://www.ontario.ca/page/mining-lands-administration-system"},
     "quebec": {"enabled": false, "officialUrl": "https://www.quebec.ca/agriculture-environnement-et-ressources-naturelles/mines/donnees-cartes-minieres"},
     "northwest-territories": {"enabled": false, "officialUrl": "https://www.geomatics.gov.nt.ca/en/services/web-mapping-applications/mining-recorders-office-mineral-tenure-web-map"},

@@ -26,6 +26,7 @@ from shapely.ops import transform  # type: ignore
 
 from config import PROVINCES
 from publication_policy import eligible, holder_fields
+from saskatchewan_publication import POLICY as SK_POLICY, publishable_holder, permitted_record
 
 COLORS = [
     "#C5723C",
@@ -358,11 +359,18 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     kind_lookup = {"claim": "claim", "exploration": "exploration", "operation": "lease"}
     tolerances = {"claim": 75, "exploration": 200, "operation": 75}
     for row in rows:
+        if not permitted_record(province_key, row["record_type"]):
+            continue
         if not is_current_record(row, as_of_date, bool(config.get("strict_expiry"))):
             continue
         counts[row["category"]] += 1
         treaty_counts[row["territory_name"]] += 1
         holder, holder_identifier = holder_fields(row["holder_or_owner"])
+        holder_withheld = False
+        if province_key == "saskatchewan" and (holder or holder_identifier):
+            approved_holder = publishable_holder(holder)
+            holder_withheld = not bool(approved_holder)
+            holder, holder_identifier = approved_holder, None
         if holder:
             holders.add(holder)
             holder_record_count += 1
@@ -370,6 +378,9 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
             holder_review_count += 1
         registry_check = holder_registry_checks.get((row["external_id"] or "").strip())
         holder_availability = (
+            "withheld-publication-review"
+            if holder_withheld
+            else
             "published"
             if holder
             else "identifier-only"
@@ -435,11 +446,13 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
                         else None
                     ),
                     "holderEvidenceUrl": (
+                        None if holder_withheld else
                         registry_check.get("evidence_url")
                         if registry_check
                         else row["source_record_url"] or row["source_url"]
                     ),
                     "holderVerifiedAt": (
+                        None if holder_withheld else
                         registry_check.get("evidence_date")
                         if registry_check
                         else generated_at[:10]
@@ -462,6 +475,7 @@ def build_province(province_key: str, data_root: Path, public_root: Path) -> dic
     holder_count = len(holders)
     dataset_payload = {
         "metadata": {
+            **({"holderPublicationPolicy": SK_POLICY["version"], "publicationScope": "Mineral dispositions only; separate mine-location and assessment feeds withheld pending source review."} if province_key == "saskatchewan" else {}),
             "generatedAt": generated_at,
             "asOfDate": as_of_date,
             "currentOnly": True,

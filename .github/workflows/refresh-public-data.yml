@@ -42,6 +42,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_refresh_resilience.py'
           python -m unittest discover -s tests -p 'test_publication_policy.py'
+          python -m unittest discover -s tests -p 'test_saskatchewan_publication.py'
           python scripts/canada-mining/refresh_baseline.py
 
       - name: Refresh each jurisdiction independently

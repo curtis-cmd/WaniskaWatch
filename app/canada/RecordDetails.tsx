@@ -19,7 +19,7 @@ export default function RecordDetails({record, provinceName, path, onClose}: {
   return <aside className="national-record-detail" aria-label="Selected mining record">
     <button type="button" onClick={onClose} aria-label="Close record details">×</button>
     <h3>{p.name || p.id}</h3><p>{p.kindLabel || p.kind} · {provinceName}</p>
-    <dl><dt>Record ID</dt><dd>{p.id}</dd><dt>{partyLabel}</dt><dd>{p.holder || 'Holder source review required'}</dd>
+    <dl><dt>Record ID</dt><dd>{p.id}</dd><dt>{partyLabel}</dt><dd>{p.holder || (p.holderAvailability === 'withheld-publication-review' ? 'Holder name withheld pending publication review — consult the official registry' : 'Holder source review required')}</dd>
       <dt>Published status</dt><dd>{p.status || 'Not supplied in this source field'}</dd>
       {p.holderSourceIdentifier && <><dt>Source holder identifier—not a verified name</dt><dd>{p.holderSourceIdentifier}</dd></>}
       {p.rightsClassification && <><dt>Rights classification</dt><dd>{p.rightsClassification}</dd></>}

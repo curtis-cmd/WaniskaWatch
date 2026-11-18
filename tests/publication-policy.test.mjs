@@ -49,6 +49,6 @@ test('government viewport payloads cannot bypass the public expiry filter', asyn
 test('rebuilding preserves the source date for holder fields without registry overrides', async () => {
   for (const file of ['../scripts/canada-mining/build_public_dataset.py', '../scripts/manitoba-mining/build_portal_dataset.py']) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
-    assert.match(source, /"holderVerifiedAt":[\s\S]{0,180}else generated_at\[:10\]/);
+    assert.match(source, /"holderVerifiedAt":[\s\S]{0,250}else generated_at\[:10\]/);
   }
 });

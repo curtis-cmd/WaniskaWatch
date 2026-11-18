@@ -1,0 +1,16 @@
+{
+  "version": "2026-11-18.1",
+  "reviewedAt": "2026-11-18",
+  "purpose": "Corporate-identity evidence only, not independent confirmation of title ownership. Exact source names only; no suffix inference, aliases or successor substitution. Unknown and mixed holder strings are withheld in full.",
+  "companies": [
+    {"name":"CAMECO CORPORATION","evidenceUrl":"https://www.sec.gov/Archives/edgar/data/1009001/000119312526139310/d48743dex991.htm"},
+    {"name":"SGO Mining Inc.","evidenceUrl":"https://www.sec.gov/Archives/edgar/data/921638/000092163826000035/ex21subsidiariesye25.htm"},
+    {"name":"Hudbay Minerals Inc.","evidenceUrl":"https://hudbayminerals.com/home/default.aspx"},
+    {"name":"Skyharbour Resources Ltd.","evidenceUrl":"https://www.skyharbourltd.com/corporate/"},
+    {"name":"Atha Energy Corp.","evidenceUrl":"https://athaenergy.com/about/"},
+    {"name":"EAGLE PLAINS RESOURCES LTD.","evidenceUrl":"https://www.eagleplains.com/about"},
+    {"name":"STAR DIAMOND CORPORATION","evidenceUrl":"https://www.stardiamondcorp.com/corporate/history/"},
+    {"name":"ISOENERGY LTD.","evidenceUrl":"https://www.isoenergy.ca/"},
+    {"name":"DENISON MINES CORP.","evidenceUrl":"https://denisonmines.com/news/denison-announces-closing-of-transaction-with-skyh-122839/"}
+  ]
+}

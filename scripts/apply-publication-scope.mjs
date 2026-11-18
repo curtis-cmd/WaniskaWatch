@@ -2,6 +2,7 @@ import {readFile, writeFile, readdir, rm} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {publicationEnabled, publicationStatus} from '../app/publication-permission.mjs';
+import {validateSaskatchewan} from './saskatchewan-publication.mjs';
 
 // Build-time enforcement also removes excluded assets from the deployable tree.
 // Source history is retained in Git; raw evidence must remain outside public/.
@@ -9,6 +10,9 @@ export async function applyPublicationScope(root = fileURLToPath(new URL('../pub
   const read = async file => JSON.parse(await readFile(resolve(root,file),'utf8'));
   const save = async (file,value) => writeFile(resolve(root,file),JSON.stringify(value));
   const directory = await read('jurisdiction-status.json');
+  if (directory.jurisdictions.saskatchewan?.state === 'verified' && publicationEnabled('saskatchewan')) {
+    validateSaskatchewan(await read('saskatchewan-mining.json'));
+  }
   const excluded = Object.keys(directory.jurisdictions).filter(key => !publicationEnabled(key));
   for (const key of excluded) {
     if (!/^[a-z]+(?:-[a-z]+)*$/.test(key)) throw new Error('Invalid jurisdiction key');

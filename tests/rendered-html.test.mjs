@@ -57,7 +57,7 @@ test("server-renders Waniskâ Watch with the supplied branding", async () => {
   assert.match(html, /waniska-watch-footer\.png/i);
   assert.match(html, /waniska-services-logo\.png/i);
   assert.match(html, /A free community resource from/i);
-  assert.match(html, /https:\/\/waniskaservices\.ca\//i);
+  assert.doesNotMatch(html, /Get support|Talk with Waniskâ Services|Indigenous-owned consulting|href="https:\/\/waniskaservices\.ca\//i);
   assert.match(html, /Know what’s happening/i);
   assert.match(html, /Explore the map/i);
   assert.match(html, /TERRITORY WATCH/i);
@@ -267,6 +267,7 @@ test("publishes holder provenance and review flags without implying non-publicat
     "government-gis-omits-holder",
     "registry-checked-unavailable",
     "identifier-only",
+    "withheld-publication-review",
   ]);
 
   const publishedKeys = new Set(

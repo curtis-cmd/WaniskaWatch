@@ -57,8 +57,8 @@ Builds strip excluded jurisdiction assets and regenerate national counts. Runtim
 data and API guards also enforce this scope; scheduled refreshes cannot silently
 restore an excluded jurisdiction. Original snapshots remain recoverable from Git.
 
-As reviewed November 15, 2026, the enabled mining sources are Manitoba, British
-Columbia, Yukon and Nunavut. Other jurisdictions have official-source links and
+As reviewed November 18, 2026, the enabled mining sources are Manitoba, British
+Columbia, Yukon, Nunavut and the restricted Saskatchewan mineral-disposition view described below. Other jurisdictions have official-source links and
 remain withheld pending review. This operational scope is not legal clearance.
 Personal information, third-party rights, attribution and dataset-specific terms
 remain separate requirements even under an open-government licence.
@@ -69,3 +69,27 @@ in the configuration, run a current source refresh and audit, and test all deliv
 paths. Never change a source verification date merely because code was deployed.
 Describe records as verified as of their displayed date, not real-time or
 individually registry-confirmed unless the evidence supports that narrower claim.
+
+### Saskatchewan noncommercial presentation
+
+The owner approved a noncommercial community-information presentation. This is not
+a legal clearance or government permission for commercial reuse. The exact source
+terms are linked in `config/publication-sources.json`; retain those terms privately
+and reassess before changing the use, advertising or business model.
+
+- Only the Crown mineral-disposition layer is republished. Separate mine-location
+  and historical assessment layers remain outside the reviewed publication scope.
+- `config/saskatchewan-holder-publication.json` lists exact corporate identities
+  supported by primary evidence. It does not independently establish title ownership.
+  Unknown names, including unresolved companies, are withheld; suffixes do not prove identity.
+  A mixed ownership string is withheld in full unless every party has reviewed evidence.
+- The builder redacts before any public snapshot or national tile is generated.
+  The audit compares every included ID, status, date and redacted holder to the
+  downloaded source. Build validation rejects unreviewed holder names.
+- Saskatchewan and Canada-wide views contain no consulting promotions. Neutral
+  provider branding, source attribution, correction links and information notices remain.
+- Raw government files, ownership evidence and review outcomes remain in ignored
+  private storage, never in public assets or committed to the public repository.
+- A scoped passing audit may be merged with `scripts/merge-passing-jurisdiction-audit.mjs`;
+  it preserves the other jurisdictions' evidence and the last full audit date.
+  Scheduled refreshes still run the complete applicable audit before publication.

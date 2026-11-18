@@ -192,7 +192,7 @@ export default function NationalOverview({ data }: { data: Overview }) {
     <header className="watch-header">
       <a className="watch-brand" href={path("/")} aria-label="Waniskâ Watch home"><img className="watch-logo" src={path("/waniska-watch-header.png")} alt="Waniskâ Watch" /></a>
       <nav aria-label="Waniskâ Watch navigation"><a href={path("/")}>Province & territory maps</a><a href="#national-sources">Sources & coverage</a></nav>
-      <a className="watch-support-button" href="mailto:info@waniskaservices.ca">Get support</a>
+      <a className="watch-support-button" href="mailto:info@waniskaservices.ca?subject=Waniska%20Watch%20correction%20request">Report an error</a>
     </header>
     <div className="national-toolbar">
       <a href={path("/#territory-watch")}>← Explore individual records</a>

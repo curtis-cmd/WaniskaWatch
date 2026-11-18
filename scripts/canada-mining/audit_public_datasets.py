@@ -16,6 +16,7 @@ from config import PROVINCES
 from refresh_baseline import verify_retained
 from publication_policy import eligible, holder_fields
 from publication_scope import enabled
+from saskatchewan_publication import POLICY as SK_POLICY, publishable_holder, permitted_record
 
 INACTIVE = re.compile(
     r"abandoned|canceled|cancelled|closed|converted to lease|expired|forfeited|"
@@ -115,6 +116,14 @@ def main() -> None:
         metadata = payload.get("metadata") or {}
         features = payload.get("features") or []
         issues: list[str] = []
+        if key == "saskatchewan":
+            if metadata.get("holderPublicationPolicy") != SK_POLICY["version"]:
+                issues.append("Saskatchewan holder publication policy missing or outdated")
+            for feature in features:
+                p = feature.get("properties") or {}
+                if not permitted_record(key, p.get("kindLabel")) or (p.get("holder") and publishable_holder(p["holder"]) != p["holder"]):
+                    issues.append("Saskatchewan publication-scope or holder-identity check failed")
+                    break
         if metadata.get("currentOnly") is not True:
             issues.append("dataset is not marked currentOnly")
         if metadata.get("featureCount") != len(features):
@@ -134,6 +143,7 @@ def main() -> None:
             "government-gis-omits-holder",
             "registry-checked-unavailable",
             "identifier-only",
+            "withheld-publication-review",
         }
         missing_holder_audit = 0
         inconsistent_holder_audit = 0
@@ -225,7 +235,7 @@ def main() -> None:
             with sqlite3.connect(f"file:{db_path.resolve()}?mode=ro&immutable=1", uri=True) as db:
                 normalized_count = int(db.execute("SELECT COUNT(*) FROM mining_records").fetchone()[0])
                 expected_eligible = sum(
-                    'assessment file' not in str(record_type or '').lower()
+                    permitted_record(key, record_type) and 'assessment file' not in str(record_type or '').lower()
                     and eligible('mine' if str(record_type or '').lower() in {'mine location', 'producing mine'} else category,
                                  status, expiry, audited_at.date().isoformat())
                     for category, record_type, status, expiry in db.execute('SELECT category, record_type, status, expiry_date FROM mining_records')
@@ -234,6 +244,14 @@ def main() -> None:
                     issues.append(f"source eligibility count mismatch: {expected_eligible} eligible source rows, {total_metadata_records} published")
                 if normalized_count and not expected_eligible:
                     issues.append('All source rows withheld for current-status review; do not publish as verified zero coverage')
+                if key == "saskatchewan":
+                    expected = {}
+                    for number, oid, record_type, status, expiry, owner in db.execute('SELECT external_id, source_object_id, record_type, status, expiry_date, holder_or_owner FROM mining_records'):
+                        if permitted_record(key, record_type) and eligible('claim', status, expiry, audited_at.date().isoformat()):
+                            expected[f'{key}:{record_type}:{oid}'] = (str(number or oid), status, expiry, publishable_holder(owner))
+                    actual = {str(f['id']): (str(f['properties']['id']), f['properties']['status'], f['properties']['expiryDate'], f['properties']['holder']) for f in features}
+                    if expected != actual:
+                        issues.append('Saskatchewan title ID/status/date/redacted-holder comparison against normalized source failed')
                 for layer in PROVINCES[key]["layers"]:
                     total, published, identifiers = db.execute(
                         """SELECT COUNT(*), SUM(CASE WHEN holder_or_owner IS NOT NULL
